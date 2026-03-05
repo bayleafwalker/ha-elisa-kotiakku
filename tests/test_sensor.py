@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -242,6 +242,8 @@ class TestAsyncSetupEntry:
         sensor_count = len(SENSOR_DESCRIPTIONS) + len(ENERGY_SENSOR_DESCRIPTIONS)
         assert len(entities) == sensor_count
         power_sensors = [e for e in entities if isinstance(e, ElisaKotiakkuSensor)]
-        energy_sensors = [e for e in entities if isinstance(e, ElisaKotiakkuEnergySensor)]
+        energy_sensors = [
+            e for e in entities if isinstance(e, ElisaKotiakkuEnergySensor)
+        ]
         assert len(power_sensors) == len(SENSOR_DESCRIPTIONS)
         assert len(energy_sensors) == len(ENERGY_SENSOR_DESCRIPTIONS)

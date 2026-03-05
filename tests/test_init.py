@@ -284,7 +284,7 @@ async def test_backfill_service_raises_for_unknown_entry_id(hass) -> None:
 
 
 async def test_backfill_service_raises_on_auth_failure(hass) -> None:
-    """ConfigEntryAuthFailed from the coordinator must surface as ServiceValidationError."""
+    """Auth failures from the coordinator must surface as ServiceValidationError."""
     coordinator = MagicMock()
     coordinator.async_backfill_energy = AsyncMock(
         side_effect=ConfigEntryAuthFailed("Bad key")
@@ -391,7 +391,7 @@ async def test_startup_backfill_fails_gracefully_on_error(hass) -> None:
 
 
 async def test_async_unload_keeps_service_when_other_entries_remain(hass) -> None:
-    """The backfill service must remain present after a single entry is unloaded (service is integration-level)."""
+    """Service stays present when unloading one of multiple integration entries."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={CONF_API_KEY: "test-api-key"},

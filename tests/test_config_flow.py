@@ -285,7 +285,9 @@ class TestReconfigureFlow:
             user_input={CONF_API_KEY: "duplicate-key"}
         )
 
-        reconfigure_flow.async_abort.assert_called_once_with(reason="already_configured")
+        reconfigure_flow.async_abort.assert_called_once_with(
+            reason="already_configured"
+        )
         reconfigure_flow.async_update_reload_and_abort.assert_not_called()
 
 
@@ -295,15 +297,13 @@ class TestGenericExceptionHandling:
     async def test_user_step_generic_exception_shows_cannot_connect(
         self, flow: ElisaKotiakkuConfigFlow
     ) -> None:
-        """An unexpected exception during user-step validation must show cannot_connect."""
+        """Unexpected user-step errors should map to cannot_connect."""
         with patch.object(
             flow,
             "_async_validate_api_key",
             side_effect=RuntimeError("unexpected server error"),
         ):
-            result = await flow.async_step_user(
-                user_input={"api_key": "some-key"}
-            )
+            await flow.async_step_user(user_input={"api_key": "some-key"})
 
         flow.async_show_form.assert_called_once()
         errors = flow.async_show_form.call_args.kwargs["errors"]
@@ -312,13 +312,13 @@ class TestGenericExceptionHandling:
     async def test_reauth_step_generic_exception_shows_cannot_connect(
         self, reauth_flow: ElisaKotiakkuConfigFlow
     ) -> None:
-        """An unexpected exception during reauth validation must show cannot_connect."""
+        """Unexpected reauth errors should map to cannot_connect."""
         with patch.object(
             reauth_flow,
             "_async_validate_api_key",
             side_effect=RuntimeError("unexpected server error"),
         ):
-            result = await reauth_flow.async_step_reauth_confirm(
+            await reauth_flow.async_step_reauth_confirm(
                 user_input={"api_key": "new-key"}
             )
 
@@ -329,13 +329,13 @@ class TestGenericExceptionHandling:
     async def test_reconfigure_step_generic_exception_shows_cannot_connect(
         self, reconfigure_flow: ElisaKotiakkuConfigFlow
     ) -> None:
-        """An unexpected exception during reconfigure validation must show cannot_connect."""
+        """Unexpected reconfigure errors should map to cannot_connect."""
         with patch.object(
             reconfigure_flow,
             "_async_validate_api_key",
             side_effect=RuntimeError("unexpected server error"),
         ):
-            result = await reconfigure_flow.async_step_reconfigure(
+            await reconfigure_flow.async_step_reconfigure(
                 user_input={"api_key": "new-key"}
             )
 

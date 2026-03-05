@@ -7,14 +7,13 @@ from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.exceptions import ConfigEntryAuthFailed
 
 from custom_components.elisa_kotiakku.api import (
     ElisaKotiakkuApiError,
     ElisaKotiakkuAuthError,
     ElisaKotiakkuRateLimitError,
 )
-from homeassistant.exceptions import ConfigEntryAuthFailed
-
 from custom_components.elisa_kotiakku.const import DEFAULT_WINDOW_HOURS
 from custom_components.elisa_kotiakku.coordinator import (
     ElisaKotiakkuCoordinator,

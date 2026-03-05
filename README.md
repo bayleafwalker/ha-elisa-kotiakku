@@ -3,7 +3,7 @@
 [![CI](https://github.com/bayleafwalker/ha-elisa-kotiakku/actions/workflows/ci.yml/badge.svg)](https://github.com/bayleafwalker/ha-elisa-kotiakku/actions/workflows/ci.yml)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python (dev)](https://img.shields.io/badge/Python%20(dev)-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > [!IMPORTANT]
@@ -49,7 +49,9 @@ Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku
 |---|---|---|
 | Repository URL | HACS only | `https://github.com/bayleafwalker/ha-elisa-kotiakku` |
 | Home Assistant version | Yes | `2024.1` or newer |
-| Python version | Yes | `3.12` or newer |
+| Python version | Dev only | `3.12` or newer (for local development and tests) |
+
+For normal Home Assistant usage, only the Home Assistant version requirement applies.
 
 ## Configuration
 
