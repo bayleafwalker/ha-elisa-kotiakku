@@ -3,12 +3,12 @@
     "step": {
       "user": {
         "title": "Elisa Kotiakku",
-        "description": "Enter your Kotiakku API key. You can generate one at https://residential.gridle.com",
+        "description": "Enter your Kotiakku API key. You can generate one in the Kotiakku app",
         "data": {
           "api_key": "API Key"
         },
         "data_description": {
-          "api_key": "The API key for your Kotiakku system, found in the Gridle portal."
+          "api_key": "The API key for your Kotiakku system, found in the Kotiakku app."
         }
       },
       "reauth_confirm": {
@@ -18,7 +18,17 @@
           "api_key": "API Key"
         },
         "data_description": {
-          "api_key": "The new API key for your Kotiakku system."
+          "api_key": "The new API key for your Kotiakku system, found in the Kotiakku app."
+        }
+      },
+      "reconfigure_confirm": {
+        "title": "Reconfigure Elisa Kotiakku",
+        "description": "Update the API key used by this integration.",
+        "data": {
+          "api_key": "API Key"
+        },
+        "data_description": {
+          "api_key": "The API key for your Kotiakku system, found in the Kotiakku app."
         }
       }
     },
@@ -28,25 +38,72 @@
     },
     "abort": {
       "already_configured": "This API key is already configured.",
-      "reauth_successful": "Reauthentication successful."
+      "reauth_successful": "Reauthentication successful.",
+      "reconfigure_successful": "Reconfiguration successful."
     }
   },
   "entity": {
     "sensor": {
-      "battery_power": { "name": "Battery power" },
-      "state_of_charge": { "name": "Battery state of charge" },
-      "battery_temperature": { "name": "Battery temperature" },
-      "solar_power": { "name": "Solar power" },
-      "grid_power": { "name": "Grid power" },
-      "house_power": { "name": "House power" },
-      "solar_to_house": { "name": "Solar to house" },
-      "solar_to_battery": { "name": "Solar to battery" },
-      "solar_to_grid": { "name": "Solar to grid" },
-      "grid_to_house": { "name": "Grid to house" },
-      "grid_to_battery": { "name": "Grid to battery" },
-      "battery_to_house": { "name": "Battery to house" },
-      "battery_to_grid": { "name": "Battery to grid" },
-      "spot_price": { "name": "Spot price" }
+      "battery_power": {
+        "name": "Battery power"
+      },
+      "state_of_charge": {
+        "name": "Battery state of charge"
+      },
+      "battery_temperature": {
+        "name": "Battery temperature"
+      },
+      "solar_power": {
+        "name": "Solar power"
+      },
+      "grid_power": {
+        "name": "Grid power"
+      },
+      "house_power": {
+        "name": "House power"
+      },
+      "solar_to_house": {
+        "name": "Solar to house"
+      },
+      "solar_to_battery": {
+        "name": "Solar to battery"
+      },
+      "solar_to_grid": {
+        "name": "Solar to grid"
+      },
+      "grid_to_house": {
+        "name": "Grid to house"
+      },
+      "grid_to_battery": {
+        "name": "Grid to battery"
+      },
+      "battery_to_house": {
+        "name": "Battery to house"
+      },
+      "battery_to_grid": {
+        "name": "Battery to grid"
+      },
+      "spot_price": {
+        "name": "Spot price"
+      },
+      "grid_import_energy": {
+        "name": "Grid import energy"
+      },
+      "grid_export_energy": {
+        "name": "Grid export energy"
+      },
+      "solar_production_energy": {
+        "name": "Solar production energy"
+      },
+      "house_consumption_energy": {
+        "name": "House consumption energy"
+      },
+      "battery_charge_energy": {
+        "name": "Battery charge energy"
+      },
+      "battery_discharge_energy": {
+        "name": "Battery discharge energy"
+      }
     }
   }
 }

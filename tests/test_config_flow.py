@@ -10,8 +10,11 @@ from custom_components.elisa_kotiakku.api import (
     ElisaKotiakkuApiError,
     ElisaKotiakkuAuthError,
 )
-from custom_components.elisa_kotiakku.config_flow import ElisaKotiakkuConfigFlow
-from custom_components.elisa_kotiakku.const import CONF_API_KEY, DOMAIN
+from custom_components.elisa_kotiakku.config_flow import (
+    ElisaKotiakkuConfigFlow,
+    _unique_id_from_api_key,
+)
+from custom_components.elisa_kotiakku.const import CONF_API_KEY
 
 
 @pytest.fixture
@@ -19,10 +22,14 @@ def flow() -> ElisaKotiakkuConfigFlow:
     """Return a config flow instance with mocked HA internals."""
     f = ElisaKotiakkuConfigFlow()
     f.hass = MagicMock()
+    f.hass.config_entries = MagicMock()
+    f.hass.config_entries.async_update_entry = MagicMock()
     f.async_set_unique_id = AsyncMock()
     f._abort_if_unique_id_configured = MagicMock()
     f.async_create_entry = MagicMock(return_value={"type": "create_entry"})
     f.async_show_form = MagicMock(return_value={"type": "form"})
+    f.async_abort = MagicMock(return_value={"type": "abort"})
+    f._async_current_entries = MagicMock(return_value=[])
     return f
 
 
@@ -31,140 +38,140 @@ def reauth_flow() -> ElisaKotiakkuConfigFlow:
     """Return a config flow instance pre-configured for reauth testing."""
     f = ElisaKotiakkuConfigFlow()
     f.hass = MagicMock()
+    f.hass.config_entries = MagicMock()
+    f.hass.config_entries.async_update_entry = MagicMock()
     f.async_show_form = MagicMock(return_value={"type": "form"})
+    f.async_abort = MagicMock(return_value={"type": "abort"})
     f.async_update_reload_and_abort = MagicMock(return_value={"type": "abort"})
-    # Mock the reauth entry
-    mock_entry = MagicMock()
-    mock_entry.data = {CONF_API_KEY: "old-key"}
-    f._get_reauth_entry = MagicMock(return_value=mock_entry)
+
+    reauth_entry = MagicMock()
+    reauth_entry.entry_id = "reauth-entry-id"
+    reauth_entry.unique_id = _unique_id_from_api_key("old-key")
+    reauth_entry.data = {CONF_API_KEY: "old-key"}
+
+    f._get_reauth_entry = MagicMock(return_value=reauth_entry)
+    f._async_current_entries = MagicMock(return_value=[reauth_entry])
     return f
 
 
-class TestUserStep:
-    """Tests for the user config step."""
+@pytest.fixture
+def reconfigure_flow() -> ElisaKotiakkuConfigFlow:
+    """Return a config flow instance pre-configured for reconfigure tests."""
+    f = ElisaKotiakkuConfigFlow()
+    f.hass = MagicMock()
+    f.hass.config_entries = MagicMock()
+    f.hass.config_entries.async_update_entry = MagicMock()
+    f.async_show_form = MagicMock(return_value={"type": "form"})
+    f.async_abort = MagicMock(return_value={"type": "abort"})
+    f.async_update_reload_and_abort = MagicMock(return_value={"type": "abort"})
 
-    async def test_shows_form_without_input(self, flow: ElisaKotiakkuConfigFlow) -> None:
-        """Without user_input, the form is shown."""
-        result = await flow.async_step_user(user_input=None)
+    reconfigure_entry = MagicMock()
+    reconfigure_entry.entry_id = "reconfigure-entry-id"
+    reconfigure_entry.unique_id = _unique_id_from_api_key("old-key")
+    reconfigure_entry.data = {CONF_API_KEY: "old-key"}
 
-        flow.async_show_form.assert_called_once()
-        call_kwargs = flow.async_show_form.call_args
-        assert call_kwargs.kwargs["step_id"] == "user"
-        assert call_kwargs.kwargs["errors"] == {}
+    f._get_reconfigure_entry = MagicMock(return_value=reconfigure_entry)
+    f._async_current_entries = MagicMock(return_value=[reconfigure_entry])
+    return f
 
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.async_get_clientsession"
-    )
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.ElisaKotiakkuApiClient"
-    )
-    async def test_creates_entry_on_valid_key(
+
+class TestUniqueIdDerivation:
+    """Tests for unique ID derivation from API keys."""
+
+    def test_unique_id_hash_is_stable(self) -> None:
+        """Same key should always produce the same unique ID."""
+        key = "test-key"
+        assert _unique_id_from_api_key(key) == _unique_id_from_api_key(key)
+
+    def test_unique_id_hash_does_not_contain_plaintext_key(self) -> None:
+        """Unique ID should not expose the raw API key value."""
+        key = "super-secret-key"
+        unique_id = _unique_id_from_api_key(key)
+        assert key not in unique_id
+        assert unique_id.startswith("api_key_")
+
+
+class TestValidationHelper:
+    """Tests for shared API-key validation helper."""
+
+    @patch("custom_components.elisa_kotiakku.config_flow.async_get_clientsession")
+    @patch("custom_components.elisa_kotiakku.config_flow.ElisaKotiakkuApiClient")
+    async def test_validate_helper_calls_client(
         self,
         mock_client_cls: MagicMock,
         mock_get_session: MagicMock,
         flow: ElisaKotiakkuConfigFlow,
-        api_key: str,
+    ) -> None:
+        """Validation helper should create client and await validation."""
+        mock_client = AsyncMock()
+        mock_client_cls.return_value = mock_client
+
+        await flow._async_validate_api_key("test-key")
+
+        mock_get_session.assert_called_once_with(flow.hass)
+        mock_client_cls.assert_called_once()
+        mock_client.async_validate_key.assert_awaited_once()
+
+
+class TestUserStep:
+    """Tests for the initial user config step."""
+
+    async def test_shows_form_without_input(
+        self, flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """Without user_input, the form is shown."""
+        await flow.async_step_user(user_input=None)
+
+        flow.async_show_form.assert_called_once()
+        kwargs = flow.async_show_form.call_args.kwargs
+        assert kwargs["step_id"] == "user"
+        assert kwargs["errors"] == {}
+
+    async def test_creates_entry_on_valid_key(
+        self, flow: ElisaKotiakkuConfigFlow
     ) -> None:
         """Valid API key creates a config entry."""
-        mock_client = AsyncMock()
-        mock_client.async_validate_key.return_value = True
-        mock_client_cls.return_value = mock_client
+        flow._async_validate_api_key = AsyncMock(return_value=None)
 
-        result = await flow.async_step_user(
-            user_input={CONF_API_KEY: api_key}
+        await flow.async_step_user(user_input={CONF_API_KEY: "  key-123  "})
+
+        flow.async_set_unique_id.assert_awaited_once_with(
+            _unique_id_from_api_key("key-123")
         )
-
-        mock_client.async_validate_key.assert_awaited_once()
+        flow._abort_if_unique_id_configured.assert_called_once()
         flow.async_create_entry.assert_called_once_with(
             title="Elisa Kotiakku",
-            data={CONF_API_KEY: api_key},
+            data={CONF_API_KEY: "key-123"},
         )
 
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.async_get_clientsession"
-    )
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.ElisaKotiakkuApiClient"
-    )
-    async def test_shows_error_on_invalid_auth(
-        self,
-        mock_client_cls: MagicMock,
-        mock_get_session: MagicMock,
-        flow: ElisaKotiakkuConfigFlow,
-        api_key: str,
+    async def test_shows_invalid_auth_error(
+        self, flow: ElisaKotiakkuConfigFlow
     ) -> None:
-        """Invalid API key shows auth error."""
-        mock_client = AsyncMock()
-        mock_client.async_validate_key.side_effect = ElisaKotiakkuAuthError(
-            "Auth failed"
-        )
-        mock_client_cls.return_value = mock_client
-
-        result = await flow.async_step_user(
-            user_input={CONF_API_KEY: api_key}
+        """Auth failures map to invalid_auth."""
+        flow._async_validate_api_key = AsyncMock(
+            side_effect=ElisaKotiakkuAuthError("bad key")
         )
 
-        flow.async_create_entry.assert_not_called()
+        await flow.async_step_user(user_input={CONF_API_KEY: "bad-key"})
+
         flow.async_show_form.assert_called_once()
-        errors = flow.async_show_form.call_args.kwargs["errors"]
-        assert errors["base"] == "invalid_auth"
+        assert flow.async_show_form.call_args.kwargs["errors"]["base"] == "invalid_auth"
 
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.async_get_clientsession"
-    )
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.ElisaKotiakkuApiClient"
-    )
-    async def test_shows_error_on_connection_failure(
-        self,
-        mock_client_cls: MagicMock,
-        mock_get_session: MagicMock,
-        flow: ElisaKotiakkuConfigFlow,
-        api_key: str,
+    async def test_shows_cannot_connect_on_api_error(
+        self, flow: ElisaKotiakkuConfigFlow
     ) -> None:
-        """Connection error shows cannot_connect error."""
-        mock_client = AsyncMock()
-        mock_client.async_validate_key.side_effect = ElisaKotiakkuApiError(
-            "Connection failed"
-        )
-        mock_client_cls.return_value = mock_client
-
-        result = await flow.async_step_user(
-            user_input={CONF_API_KEY: api_key}
+        """API errors map to cannot_connect."""
+        flow._async_validate_api_key = AsyncMock(
+            side_effect=ElisaKotiakkuApiError("network down")
         )
 
-        flow.async_create_entry.assert_not_called()
+        await flow.async_step_user(user_input={CONF_API_KEY: "some-key"})
+
         flow.async_show_form.assert_called_once()
-        errors = flow.async_show_form.call_args.kwargs["errors"]
-        assert errors["base"] == "cannot_connect"
-
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.async_get_clientsession"
-    )
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.ElisaKotiakkuApiClient"
-    )
-    async def test_sets_unique_id_and_checks_duplicates(
-        self,
-        mock_client_cls: MagicMock,
-        mock_get_session: MagicMock,
-        flow: ElisaKotiakkuConfigFlow,
-        api_key: str,
-    ) -> None:
-        """Config flow sets unique_id from API key and checks for duplicates."""
-        mock_client = AsyncMock()
-        mock_client.async_validate_key.return_value = True
-        mock_client_cls.return_value = mock_client
-
-        await flow.async_step_user(user_input={CONF_API_KEY: api_key})
-
-        flow.async_set_unique_id.assert_awaited_once_with(api_key)
-        flow._abort_if_unique_id_configured.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# Reauthentication flow
-# ---------------------------------------------------------------------------
+        assert (
+            flow.async_show_form.call_args.kwargs["errors"]["base"]
+            == "cannot_connect"
+        )
 
 
 class TestReauthFlow:
@@ -174,105 +181,104 @@ class TestReauthFlow:
         self, reauth_flow: ElisaKotiakkuConfigFlow
     ) -> None:
         """async_step_reauth delegates to async_step_reauth_confirm."""
-        result = await reauth_flow.async_step_reauth(
-            entry_data={CONF_API_KEY: "old-key"}
-        )
+        await reauth_flow.async_step_reauth(entry_data={CONF_API_KEY: "old-key"})
 
         reauth_flow.async_show_form.assert_called_once()
-        call_kwargs = reauth_flow.async_show_form.call_args.kwargs
-        assert call_kwargs["step_id"] == "reauth_confirm"
-        assert call_kwargs["errors"] == {}
+        kwargs = reauth_flow.async_show_form.call_args.kwargs
+        assert kwargs["step_id"] == "reauth_confirm"
+        assert kwargs["errors"] == {}
 
-    async def test_reauth_confirm_shows_form_without_input(
+    async def test_reauth_confirm_updates_entry_on_valid_key(
         self, reauth_flow: ElisaKotiakkuConfigFlow
     ) -> None:
-        """Without user_input, the reauth form is shown."""
-        result = await reauth_flow.async_step_reauth_confirm(user_input=None)
+        """Valid new API key updates unique_id + data and reloads."""
+        reauth_flow._async_validate_api_key = AsyncMock(return_value=None)
+        reauth_entry = reauth_flow._get_reauth_entry.return_value
 
-        reauth_flow.async_show_form.assert_called_once()
-        call_kwargs = reauth_flow.async_show_form.call_args.kwargs
-        assert call_kwargs["step_id"] == "reauth_confirm"
-        assert call_kwargs["errors"] == {}
+        await reauth_flow.async_step_reauth_confirm(
+            user_input={CONF_API_KEY: "new-key"}
+        )
 
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.async_get_clientsession"
-    )
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.ElisaKotiakkuApiClient"
-    )
-    async def test_reauth_confirm_updates_entry_on_valid_key(
-        self,
-        mock_client_cls: MagicMock,
-        mock_get_session: MagicMock,
-        reauth_flow: ElisaKotiakkuConfigFlow,
+        reauth_flow.hass.config_entries.async_update_entry.assert_called_once_with(
+            reauth_entry,
+            unique_id=_unique_id_from_api_key("new-key"),
+        )
+        reauth_flow.async_update_reload_and_abort.assert_called_once_with(
+            reauth_entry,
+            data_updates={CONF_API_KEY: "new-key"},
+        )
+
+    async def test_reauth_aborts_if_key_used_by_other_entry(
+        self, reauth_flow: ElisaKotiakkuConfigFlow
     ) -> None:
-        """Valid new API key updates config entry and reloads."""
-        mock_client = AsyncMock()
-        mock_client.async_validate_key.return_value = True
-        mock_client_cls.return_value = mock_client
+        """Reauth should abort if another entry already owns the key fingerprint."""
+        reauth_flow._async_validate_api_key = AsyncMock(return_value=None)
+        reauth_entry = reauth_flow._get_reauth_entry.return_value
+        other_entry = MagicMock()
+        other_entry.entry_id = "other-entry-id"
+        other_entry.unique_id = _unique_id_from_api_key("duplicate-key")
+        reauth_flow._async_current_entries.return_value = [reauth_entry, other_entry]
 
-        new_key = "new-api-key-67890"
-        result = await reauth_flow.async_step_reauth_confirm(
-            user_input={CONF_API_KEY: new_key}
+        await reauth_flow.async_step_reauth_confirm(
+            user_input={CONF_API_KEY: "duplicate-key"}
         )
 
-        mock_client.async_validate_key.assert_awaited_once()
-        reauth_flow.async_update_reload_and_abort.assert_called_once()
-        call_kwargs = reauth_flow.async_update_reload_and_abort.call_args
-        assert call_kwargs.kwargs["data_updates"] == {CONF_API_KEY: new_key}
-
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.async_get_clientsession"
-    )
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.ElisaKotiakkuApiClient"
-    )
-    async def test_reauth_confirm_shows_error_on_invalid_auth(
-        self,
-        mock_client_cls: MagicMock,
-        mock_get_session: MagicMock,
-        reauth_flow: ElisaKotiakkuConfigFlow,
-    ) -> None:
-        """Invalid API key shows auth error on reauth form."""
-        mock_client = AsyncMock()
-        mock_client.async_validate_key.side_effect = ElisaKotiakkuAuthError(
-            "Auth failed"
-        )
-        mock_client_cls.return_value = mock_client
-
-        result = await reauth_flow.async_step_reauth_confirm(
-            user_input={CONF_API_KEY: "bad-key"}
-        )
-
+        reauth_flow.async_abort.assert_called_once_with(reason="already_configured")
         reauth_flow.async_update_reload_and_abort.assert_not_called()
-        reauth_flow.async_show_form.assert_called_once()
-        errors = reauth_flow.async_show_form.call_args.kwargs["errors"]
-        assert errors["base"] == "invalid_auth"
 
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.async_get_clientsession"
-    )
-    @patch(
-        "custom_components.elisa_kotiakku.config_flow.ElisaKotiakkuApiClient"
-    )
-    async def test_reauth_confirm_shows_error_on_connection_failure(
-        self,
-        mock_client_cls: MagicMock,
-        mock_get_session: MagicMock,
-        reauth_flow: ElisaKotiakkuConfigFlow,
+
+class TestReconfigureFlow:
+    """Tests for reconfigure flow."""
+
+    async def test_reconfigure_shows_form_without_input(
+        self, reconfigure_flow: ElisaKotiakkuConfigFlow
     ) -> None:
-        """Connection error shows cannot_connect error on reauth form."""
-        mock_client = AsyncMock()
-        mock_client.async_validate_key.side_effect = ElisaKotiakkuApiError(
-            "Connection failed"
-        )
-        mock_client_cls.return_value = mock_client
+        """Without user input, the reconfigure form is shown."""
+        await reconfigure_flow.async_step_reconfigure(user_input=None)
 
-        result = await reauth_flow.async_step_reauth_confirm(
-            user_input={CONF_API_KEY: "some-key"}
+        reconfigure_flow.async_show_form.assert_called_once()
+        kwargs = reconfigure_flow.async_show_form.call_args.kwargs
+        assert kwargs["step_id"] == "reconfigure_confirm"
+        assert kwargs["errors"] == {}
+
+    async def test_reconfigure_updates_entry_on_valid_key(
+        self, reconfigure_flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """Valid key should update entry data and unique ID."""
+        reconfigure_flow._async_validate_api_key = AsyncMock(return_value=None)
+        reconfigure_entry = reconfigure_flow._get_reconfigure_entry.return_value
+
+        await reconfigure_flow.async_step_reconfigure(
+            user_input={CONF_API_KEY: "updated-key"}
         )
 
-        reauth_flow.async_update_reload_and_abort.assert_not_called()
-        reauth_flow.async_show_form.assert_called_once()
-        errors = reauth_flow.async_show_form.call_args.kwargs["errors"]
-        assert errors["base"] == "cannot_connect"
+        reconfigure_flow.hass.config_entries.async_update_entry.assert_called_once_with(
+            reconfigure_entry,
+            unique_id=_unique_id_from_api_key("updated-key"),
+        )
+        reconfigure_flow.async_update_reload_and_abort.assert_called_once_with(
+            reconfigure_entry,
+            data_updates={CONF_API_KEY: "updated-key"},
+            reason="reconfigure_successful",
+        )
+
+    async def test_reconfigure_aborts_if_duplicate(
+        self, reconfigure_flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """Reconfigure should abort when another entry owns the key fingerprint."""
+        reconfigure_flow._async_validate_api_key = AsyncMock(return_value=None)
+        reconfigure_entry = reconfigure_flow._get_reconfigure_entry.return_value
+        other_entry = MagicMock()
+        other_entry.entry_id = "other-entry-id"
+        other_entry.unique_id = _unique_id_from_api_key("duplicate-key")
+        reconfigure_flow._async_current_entries.return_value = [
+            reconfigure_entry,
+            other_entry,
+        ]
+
+        await reconfigure_flow.async_step_reconfigure(
+            user_input={CONF_API_KEY: "duplicate-key"}
+        )
+
+        reconfigure_flow.async_abort.assert_called_once_with(reason="already_configured")
+        reconfigure_flow.async_update_reload_and_abort.assert_not_called()

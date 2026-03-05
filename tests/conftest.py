@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from aioresponses import aioresponses
@@ -11,7 +11,6 @@ from custom_components.elisa_kotiakku.api import (
     ElisaKotiakkuApiClient,
     MeasurementData,
 )
-from custom_components.elisa_kotiakku.const import API_MEASUREMENTS_URL
 
 # ---------------------------------------------------------------------------
 # Sample API response payloads
@@ -98,4 +97,6 @@ def mock_coordinator(mock_config_entry: MagicMock) -> MagicMock:
     coordinator = MagicMock()
     coordinator.data = SAMPLE_MEASUREMENT
     coordinator.config_entry = mock_config_entry
+    coordinator.energy_last_period_end = SAMPLE_MEASUREMENT.period_end
+    coordinator.get_energy_total = MagicMock(return_value=0.0)
     return coordinator

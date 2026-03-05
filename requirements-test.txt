@@ -2,3 +2,7 @@ pytest
 pytest-asyncio
 pytest-cov
 aioresponses
+homeassistant
+pytest-homeassistant-custom-component
+ruff
+mypy

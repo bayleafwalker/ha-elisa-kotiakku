@@ -14,7 +14,10 @@ Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku
 - House: total consumption (kW)
 - Power-flow breakdown: solar→house, solar→battery, solar→grid, grid→house, grid→battery, battery→house, battery→grid
 - Electricity spot price (c/kWh)
-- Automatic 5-minute polling aligned with API measurement windows
+- Energy Dashboard-ready cumulative energy sensors (kWh, `TOTAL_INCREASING`)
+- Automatic 5-minute polling with API rate-limit backoff support
+- Historical backfill service for energy counters (`elisa_kotiakku.backfill_energy`)
+- English and Finnish UI translations
 
 ## Installation
 
@@ -22,7 +25,7 @@ Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku
 
 1. Open HACS in Home Assistant.
 2. Go to **Integrations** → three-dot menu → **Custom repositories**.
-3. Add repository URL: `https://github.com/your-username/ha-elisa-kotiakku`  
+3. Add repository URL: `https://github.com/bayleafwalker/ha-elisa-kotiakku`  
    Category: **Integration**.
 4. Search for "Elisa Kotiakku" and install.
 5. Restart Home Assistant.
@@ -34,9 +37,18 @@ Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku
 
 ## Configuration
 
+### Getting your API key
+
+1. Open the **Elisa Kotiakku** app on your smartphone.
+2. Go to **Settings** → **Data**.
+3. Under **API**, tap **Create key**.
+4. Copy the generated API key.
+
+### Adding the integration
+
 1. Go to **Settings → Devices & Services → Add Integration**.
 2. Search for **Elisa Kotiakku**.
-3. Enter your API key (obtain from https://residential.gridle.com).
+3. Paste your API key.
 4. The integration creates a device with all sensor entities.
 
 ## Sensor entities
@@ -57,6 +69,27 @@ Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku
 | Battery to house | kW | Battery power consumed |
 | Battery to grid | kW | Battery power exported |
 | Spot price | c/kWh | Electricity spot price |
+| Grid import energy | kWh | Cumulative grid import for Energy Dashboard |
+| Grid export energy | kWh | Cumulative grid export for Energy Dashboard |
+| Solar production energy | kWh | Cumulative solar production |
+| House consumption energy | kWh | Cumulative house consumption (derived from house power) |
+| Battery charge energy | kWh | Cumulative battery charging energy |
+| Battery discharge energy | kWh | Cumulative battery discharging energy |
+
+## Energy backfill service
+
+Use the built-in service to backfill historical windows into cumulative energy sensors.
+
+```yaml
+service: elisa_kotiakku.backfill_energy
+data:
+  hours: 48
+```
+
+Optional fields:
+- `entry_id`: target one config entry if you have multiple.
+- `start_time`: ISO-8601 datetime (if omitted, `hours` is used).
+- `end_time`: ISO-8601 datetime (defaults to now).
 
 ## API reference
 

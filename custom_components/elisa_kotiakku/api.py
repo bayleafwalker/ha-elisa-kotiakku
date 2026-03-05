@@ -27,6 +27,15 @@ class ElisaKotiakkuAuthError(ElisaKotiakkuApiError):
 class ElisaKotiakkuRateLimitError(ElisaKotiakkuApiError):
     """Rate limit exceeded (429)."""
 
+    def __init__(
+        self,
+        message: str = "Rate limit exceeded",
+        retry_after: int | None = None,
+    ) -> None:
+        """Initialise with optional Retry-After hint from response headers."""
+        super().__init__(message)
+        self.retry_after = retry_after
+
 
 @dataclass
 class MeasurementData:
@@ -148,18 +157,32 @@ class ElisaKotiakkuApiClient:
                         f"Authentication failed (HTTP {resp.status})"
                     )
                 if resp.status == 429:
-                    raise ElisaKotiakkuRateLimitError("Rate limit exceeded")
+                    raise ElisaKotiakkuRateLimitError(
+                        retry_after=self._parse_retry_after(
+                            resp.headers.get("Retry-After")
+                        )
+                    )
                 if resp.status == 422:
                     body = await resp.text()
                     raise ElisaKotiakkuApiError(
                         f"Validation error (422): {body}"
                     )
                 resp.raise_for_status()
-                return await resp.json()  # type: ignore[no-any-return]
+                return await resp.json()
         except aiohttp.ClientError as err:
             raise ElisaKotiakkuApiError(
                 f"Communication error: {err}"
             ) from err
+
+    @staticmethod
+    def _parse_retry_after(value: str | None) -> int | None:
+        """Parse Retry-After header (seconds form only)."""
+        if value is None:
+            return None
+        value = value.strip()
+        if value.isdigit():
+            return int(value)
+        return None
 
     @staticmethod
     def _parse_measurement(raw: dict[str, Any]) -> MeasurementData:

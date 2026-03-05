@@ -14,10 +14,12 @@ custom_components/elisa_kotiakku/
 ├── diagnostics.py       # Diagnostics dump (redacts API key)
 ├── entity.py            # Base entity class (device info, attribution)
 ├── manifest.json        # HA integration metadata
-├── sensor.py            # Sensor platform — 14 entities from API fields
+├── sensor.py            # Sensor platform — power + cumulative energy entities
+├── services.yaml        # Service definitions (historical energy backfill)
 ├── strings.json         # Default UI strings
 └── translations/
-    └── en.json          # English translations
+    ├── en.json          # English translations
+    └── fi.json          # Finnish translations
 ```
 
 ## Data Flow
@@ -30,7 +32,7 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
                                                     MeasurementData dataclass
                                                               │
                                                               ▼
-                                                  14 × ElisaKotiakkuSensor
+                                                  Power sensors + energy sensors
                                                     (SensorEntity instances)
 ```
 
@@ -47,20 +49,33 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
 
 - Subclasses `DataUpdateCoordinator[MeasurementData | None]`.
 - 5-minute polling interval matches API's measurement window granularity.
-- Translates API exceptions: `ElisaKotiakkuAuthError` → `ConfigEntryAuthFailed` (triggers HA reauth flow), other errors → `UpdateFailed` (HA retry/backoff).
+- Translates API exceptions:
+  - `ElisaKotiakkuAuthError` → `ConfigEntryAuthFailed` (triggers HA reauth flow)
+  - `ElisaKotiakkuRateLimitError` → `UpdateFailed` and temporarily increases coordinator `update_interval` using `Retry-After` when available
+  - Other API errors → `UpdateFailed`
+- Maintains cumulative energy totals (kWh) derived from each 5-minute window.
+- Persists cumulative totals and the last processed `period_end` via HA storage.
+- Provides `async_backfill_energy(start_time, end_time)` to import historical windows into totals.
 
 ### Config flow (`config_flow.py`)
 
 - **User step**: user provides API key; validates with a live API call before creating the entry.
 - **Reauthentication flow**: triggered when the coordinator receives a `ConfigEntryAuthFailed`. Prompts for a new API key, validates it, and updates the config entry.
-- Uses the API key as `unique_id` to prevent duplicate entries.
+- **Reconfigure flow**: allows changing API key from the UI after setup.
+- Uses a SHA-256 fingerprint of API key as `unique_id` to prevent duplicate entries without storing raw secret as identifier.
 
 ### Sensor platform (`sensor.py`)
 
 - Declarative sensor descriptions using `SensorEntityDescription` subclass.
 - Each description has a `value_fn` lambda that extracts one field from `MeasurementData`.
-- 14 sensors covering: battery, solar, grid, house, power-flow breakdown, spot price, temperature.
-- All sensors include `period_start` and `period_end` as extra state attributes.
+- 14 measurement sensors covering: battery, solar, grid, house, power-flow breakdown, spot price, temperature.
+- 6 cumulative energy sensors (`kWh`, `TOTAL_INCREASING`) for Energy Dashboard usage:
+  - grid import/export
+  - solar production
+  - house consumption
+  - battery charge/discharge
+- Measurement sensors expose `period_start`/`period_end` attributes.
+- Energy sensors expose `last_period_end` (latest window included in cumulative totals).
 - `PARALLEL_UPDATES = 0` — updates are centralised through the coordinator.
 - `entity_category = DIAGNOSTIC` on `battery_temperature` and `spot_price`.
 - `entity_registry_enabled_default = False` on the 7 power-flow breakdown sensors (less commonly needed).
@@ -73,7 +88,13 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
 
 ### Diagnostics (`diagnostics.py`)
 
-- Dumps config (with API key redacted) and latest measurement data.
+- Dumps config (with API key redacted), latest measurement data, and cumulative energy state.
+
+### Services (`services.yaml`)
+
+- `elisa_kotiakku.backfill_energy` imports historical windows via `async_get_range()`.
+- Supports optional `entry_id`, `start_time`, `end_time`, and `hours` fields.
+- Updates cumulative energy entities without requiring direct database writes.
 
 ## API Schema
 
@@ -115,6 +136,10 @@ Response: JSON array of objects with fields:
 4. **Translation-based entity names** — uses `translation_key` so names are translatable and follow HA naming conventions.
 5. **`runtime_data` pattern** — uses the modern `ConfigEntry.runtime_data` (type alias `ElisaKotiakkuConfigEntry`) instead of `hass.data[DOMAIN]` dict.
 6. **Extra state attributes** — `period_start`/`period_end` attached to every sensor so automations can reason about data freshness.
+7. **Secret-safe unique IDs** — config entry identity uses a hash fingerprint, not plain API key text.
+8. **Rate-limit-aware polling** — coordinator applies temporary backoff on HTTP 429 and restores default interval after success.
+9. **Energy Dashboard compatibility** — cumulative `kWh` counters are derived from 5-minute average power readings.
+10. **Controlled backfill** — historical backfill runs through an explicit service call, not automatic bulk imports.
 
 ## HA Integration Quality Scale
 
@@ -131,7 +156,7 @@ Implemented rules by tier:
 | `runtime-data` | ✅ | Modern `ConfigEntry.runtime_data` pattern |
 | `test-before-configure` | ✅ | API key validated in config flow |
 | `test-before-setup` | ✅ | `async_config_entry_first_refresh()` in `async_setup_entry` |
-| `unique-config-entry` | ✅ | API key as `unique_id` + abort-if-configured |
+| `unique-config-entry` | ✅ | Hashed API-key fingerprint as `unique_id` + abort-if-configured |
 
 ### Silver
 | Rule | Status | Notes |
@@ -139,7 +164,8 @@ Implemented rules by tier:
 | `config-entry-unloading` | ✅ | `async_unload_platforms` in `async_unload_entry` |
 | `parallel-updates` | ✅ | `PARALLEL_UPDATES = 0` (coordinator-based) |
 | `reauthentication-flow` | ✅ | `async_step_reauth` / `async_step_reauth_confirm` |
-| `test-coverage` | ✅ | 70 tests covering all modules |
+| `reconfigure-flow` | ✅ | `async_step_reconfigure` |
+| `test-coverage` | ✅ | 85 tests covering all modules |
 
 ### Gold
 | Rule | Status | Notes |

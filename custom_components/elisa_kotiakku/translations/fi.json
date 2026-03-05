@@ -1,0 +1,109 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Elisa Kotiakku",
+        "description": "Syötä Kotiakun API-avain. Voit luoda avaimen Kotiakku-sovelluksessa",
+        "data": {
+          "api_key": "API-avain"
+        },
+        "data_description": {
+          "api_key": "Kotiakkujärjestelmäsi API-avain Kotiakku-sovelluksesta."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Elisa Kotiakun uudelleentodennus",
+        "description": "API-avain ei ole enää voimassa. Syötä uusi avain.",
+        "data": {
+          "api_key": "API-avain"
+        },
+        "data_description": {
+          "api_key": "Kotiakkujärjestelmäsi uusi API-avain Kotiakku-sovelluksesta."
+        }
+      },
+      "reconfigure_confirm": {
+        "title": "Elisa Kotiakun uudelleenmääritys",
+        "description": "Päivitä tämän integraation käyttämä API-avain.",
+        "data": {
+          "api_key": "API-avain"
+        },
+        "data_description": {
+          "api_key": "Kotiakkujärjestelmäsi API-avain Kotiakku-sovelluksesta."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Virheellinen API-avain. Tarkista avain ja yritä uudelleen.",
+      "cannot_connect": "Yhteyttä Kotiakku API:in ei saatu. Yritä myöhemmin uudelleen."
+    },
+    "abort": {
+      "already_configured": "Tämä API-avain on jo määritetty.",
+      "reauth_successful": "Uudelleentodennus onnistui.",
+      "reconfigure_successful": "Uudelleenmääritys onnistui."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_power": {
+        "name": "Akun teho"
+      },
+      "state_of_charge": {
+        "name": "Akun varaustaso"
+      },
+      "battery_temperature": {
+        "name": "Akun lämpötila"
+      },
+      "solar_power": {
+        "name": "Aurinkoteho"
+      },
+      "grid_power": {
+        "name": "Verkkoteho"
+      },
+      "house_power": {
+        "name": "Talon teho"
+      },
+      "solar_to_house": {
+        "name": "Aurinko taloon"
+      },
+      "solar_to_battery": {
+        "name": "Aurinko akkuun"
+      },
+      "solar_to_grid": {
+        "name": "Aurinko verkkoon"
+      },
+      "grid_to_house": {
+        "name": "Verkko taloon"
+      },
+      "grid_to_battery": {
+        "name": "Verkko akkuun"
+      },
+      "battery_to_house": {
+        "name": "Akku taloon"
+      },
+      "battery_to_grid": {
+        "name": "Akku verkkoon"
+      },
+      "spot_price": {
+        "name": "Spot-hinta"
+      },
+      "grid_import_energy": {
+        "name": "Verkko-oston energia"
+      },
+      "grid_export_energy": {
+        "name": "Verkkomyynnin energia"
+      },
+      "solar_production_energy": {
+        "name": "Aurinkotuotannon energia"
+      },
+      "house_consumption_energy": {
+        "name": "Talon kulutusenergia"
+      },
+      "battery_charge_energy": {
+        "name": "Akun latausenergia"
+      },
+      "battery_discharge_energy": {
+        "name": "Akun purkuenergia"
+      }
+    }
+  }
+}

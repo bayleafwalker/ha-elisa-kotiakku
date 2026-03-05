@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,8 +9,6 @@ import pytest
 from custom_components.elisa_kotiakku.diagnostics import (
     async_get_config_entry_diagnostics,
 )
-
-from .conftest import SAMPLE_MEASUREMENT
 
 
 @pytest.fixture
@@ -76,4 +73,25 @@ class TestDiagnostics:
 
         assert "config" in result
         assert "latest_measurement" in result
-        assert len(result) == 2
+        assert "energy_totals" in result
+        assert "energy_last_period_end" in result
+        assert len(result) == 4
+
+    async def test_energy_data_included(
+        self, mock_entry_with_coordinator: MagicMock
+    ) -> None:
+        """Energy totals and last period should be included."""
+        mock_entry_with_coordinator.runtime_data.energy_totals = {
+            "grid_import_energy": 1.23
+        }
+        mock_entry_with_coordinator.runtime_data.energy_last_period_end = (
+            "2025-12-17T00:05:00+02:00"
+        )
+
+        hass = MagicMock()
+        result = await async_get_config_entry_diagnostics(
+            hass, mock_entry_with_coordinator
+        )
+
+        assert result["energy_totals"]["grid_import_energy"] == 1.23
+        assert result["energy_last_period_end"] == "2025-12-17T00:05:00+02:00"

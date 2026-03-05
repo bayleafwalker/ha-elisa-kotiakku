@@ -1,0 +1,35 @@
+backfill_energy:
+  name: Backfill Energy
+  description: >
+    Import historical measurement windows and update cumulative kWh sensors.
+    Use this after first setup or long downtime to backfill Energy Dashboard data.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: Optional. Backfill only one specific Elisa Kotiakku config entry.
+      example: "01J8ZQWJ7A4M3TQ0AFJ2Q3D9E8"
+      selector:
+        text:
+    start_time:
+      name: Start Time
+      description: >
+        Optional ISO-8601 datetime (for example 2026-03-01T00:00:00+02:00).
+        If omitted, a range based on Hours is used.
+      selector:
+        text:
+    end_time:
+      name: End Time
+      description: >
+        Optional ISO-8601 datetime. Defaults to now.
+      selector:
+        text:
+    hours:
+      name: Hours
+      description: >
+        Number of hours to backfill when Start Time is omitted. Default 24, maximum 744.
+      default: 24
+      selector:
+        number:
+          min: 1
+          max: 744
+          mode: box

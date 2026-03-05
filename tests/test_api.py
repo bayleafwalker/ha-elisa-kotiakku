@@ -19,7 +19,6 @@ from custom_components.elisa_kotiakku.const import API_MEASUREMENTS_URL
 
 from .conftest import SAMPLE_API_RESPONSE, SAMPLE_API_RESPONSE_ITEM
 
-
 # ---------------------------------------------------------------------------
 # async_get_latest
 # ---------------------------------------------------------------------------
@@ -136,6 +135,40 @@ class TestHttpErrors:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             with pytest.raises(ElisaKotiakkuRateLimitError):
                 await client.async_get_latest()
+
+    async def test_rate_limit_error_carries_retry_after_seconds(
+        self, mock_aioresponses: aioresponses, api_key: str
+    ) -> None:
+        """429 should parse Retry-After header when it is an integer value."""
+        mock_aioresponses.get(
+            API_MEASUREMENTS_URL,
+            status=429,
+            headers={"Retry-After": "120"},
+        )
+
+        async with aiohttp.ClientSession() as session:
+            client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
+            with pytest.raises(ElisaKotiakkuRateLimitError) as err:
+                await client.async_get_latest()
+
+        assert err.value.retry_after == 120
+
+    async def test_rate_limit_error_ignores_non_numeric_retry_after(
+        self, mock_aioresponses: aioresponses, api_key: str
+    ) -> None:
+        """Non-numeric Retry-After header should be ignored safely."""
+        mock_aioresponses.get(
+            API_MEASUREMENTS_URL,
+            status=429,
+            headers={"Retry-After": "Wed, 21 Oct 2015 07:28:00 GMT"},
+        )
+
+        async with aiohttp.ClientSession() as session:
+            client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
+            with pytest.raises(ElisaKotiakkuRateLimitError) as err:
+                await client.async_get_latest()
+
+        assert err.value.retry_after is None
 
     async def test_validation_error(
         self, mock_aioresponses: aioresponses, api_key: str
