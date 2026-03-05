@@ -163,7 +163,6 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         translation_key="spot_price",
         native_unit_of_measurement=UNIT_CENTS_PER_KWH,
         device_class=SensorDeviceClass.MONETARY,
-        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda d: d.spot_price_cents_per_kwh,
     ),

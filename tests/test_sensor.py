@@ -204,6 +204,11 @@ class TestQualityScaleCompliance:
             if desc.key in diagnostic_keys:
                 assert desc.entity_category == EntityCategory.DIAGNOSTIC
 
+    def test_monetary_sensor_has_no_state_class(self) -> None:
+        """Monetary sensors must not use state_class=measurement."""
+        spot_price = next(d for d in SENSOR_DESCRIPTIONS if d.key == "spot_price")
+        assert spot_price.state_class is None
+
 
 class TestDeviceInfo:
     """Tests for the device_info property on entity base class."""
