@@ -1,0 +1,12 @@
+{
+  "domain": "elisa_kotiakku",
+  "name": "Elisa Kotiakku",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/your-username/ha-elisa-kotiakku",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/your-username/ha-elisa-kotiakku/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

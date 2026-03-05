@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Elisa Kotiakku",
+        "description": "Enter your Kotiakku API key. You can generate one at https://residential.gridle.com",
+        "data": {
+          "api_key": "API Key"
+        },
+        "data_description": {
+          "api_key": "The API key for your Kotiakku system, found in the Gridle portal."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Elisa Kotiakku",
+        "description": "Your API key is no longer valid. Please enter a new one.",
+        "data": {
+          "api_key": "API Key"
+        },
+        "data_description": {
+          "api_key": "The new API key for your Kotiakku system."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid API key. Please check your key and try again.",
+      "cannot_connect": "Unable to connect to the Kotiakku API. Please try again later."
+    },
+    "abort": {
+      "already_configured": "This API key is already configured.",
+      "reauth_successful": "Reauthentication successful."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_power": { "name": "Battery power" },
+      "state_of_charge": { "name": "Battery state of charge" },
+      "battery_temperature": { "name": "Battery temperature" },
+      "solar_power": { "name": "Solar power" },
+      "grid_power": { "name": "Grid power" },
+      "house_power": { "name": "House power" },
+      "solar_to_house": { "name": "Solar to house" },
+      "solar_to_battery": { "name": "Solar to battery" },
+      "solar_to_grid": { "name": "Solar to grid" },
+      "grid_to_house": { "name": "Grid to house" },
+      "grid_to_battery": { "name": "Grid to battery" },
+      "battery_to_house": { "name": "Battery to house" },
+      "battery_to_grid": { "name": "Battery to grid" },
+      "spot_price": { "name": "Spot price" }
+    }
+  }
+}
