@@ -19,6 +19,12 @@ from custom_components.elisa_kotiakku.const import API_MEASUREMENTS_URL
 
 from .conftest import SAMPLE_API_RESPONSE, SAMPLE_API_RESPONSE_ITEM
 
+
+def _test_client_session() -> aiohttp.ClientSession:
+    """Create an aiohttp test session without the pycares async resolver."""
+    connector = aiohttp.TCPConnector(resolver=aiohttp.ThreadedResolver())
+    return aiohttp.ClientSession(connector=connector)
+
 # ---------------------------------------------------------------------------
 # async_get_latest
 # ---------------------------------------------------------------------------
@@ -35,7 +41,7 @@ class TestAsyncGetLatest:
             API_MEASUREMENTS_URL, payload=SAMPLE_API_RESPONSE
         )
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             result = await client.async_get_latest()
 
@@ -60,7 +66,7 @@ class TestAsyncGetLatest:
             API_MEASUREMENTS_URL, payload=[older, newer]
         )
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             result = await client.async_get_latest()
 
@@ -73,7 +79,7 @@ class TestAsyncGetLatest:
         """Empty array from API returns None."""
         mock_aioresponses.get(API_MEASUREMENTS_URL, payload=[])
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             result = await client.async_get_latest()
 
@@ -89,7 +95,7 @@ class TestAsyncGetLatest:
         }
         mock_aioresponses.get(API_MEASUREMENTS_URL, payload=[minimal])
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             result = await client.async_get_latest()
 
@@ -120,7 +126,7 @@ class TestHttpErrors:
             API_MEASUREMENTS_URL, status=status_code
         )
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             with pytest.raises(ElisaKotiakkuAuthError):
                 await client.async_get_latest()
@@ -131,7 +137,7 @@ class TestHttpErrors:
         """429 raises ElisaKotiakkuRateLimitError."""
         mock_aioresponses.get(API_MEASUREMENTS_URL, status=429)
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             with pytest.raises(ElisaKotiakkuRateLimitError):
                 await client.async_get_latest()
@@ -146,7 +152,7 @@ class TestHttpErrors:
             headers={"Retry-After": "120"},
         )
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             with pytest.raises(ElisaKotiakkuRateLimitError) as err:
                 await client.async_get_latest()
@@ -163,7 +169,7 @@ class TestHttpErrors:
             headers={"Retry-After": "Wed, 21 Oct 2015 07:28:00 GMT"},
         )
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             with pytest.raises(ElisaKotiakkuRateLimitError) as err:
                 await client.async_get_latest()
@@ -178,7 +184,7 @@ class TestHttpErrors:
             API_MEASUREMENTS_URL, status=422, body="bad params"
         )
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             with pytest.raises(ElisaKotiakkuApiError, match="422"):
                 await client.async_get_latest()
@@ -189,7 +195,7 @@ class TestHttpErrors:
         """500 raises ElisaKotiakkuApiError (via raise_for_status)."""
         mock_aioresponses.get(API_MEASUREMENTS_URL, status=500)
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             with pytest.raises(ElisaKotiakkuApiError):
                 await client.async_get_latest()
@@ -203,7 +209,7 @@ class TestHttpErrors:
             exception=aiohttp.ClientConnectionError("Connection refused"),
         )
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             with pytest.raises(ElisaKotiakkuApiError, match="Communication"):
                 await client.async_get_latest()
@@ -232,7 +238,7 @@ class TestAsyncGetRange:
         pattern = re.compile(r"^https://residential\.gridle\.com/api/public/measurements")
         mock_aioresponses.get(pattern, payload=[item1, item2])
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             result = await client.async_get_range(
                 start_time="2025-12-17T00:00:00+02:00",
@@ -250,7 +256,7 @@ class TestAsyncGetRange:
         pattern = re.compile(r"^https://residential\.gridle\.com/api/public/measurements")
         mock_aioresponses.get(pattern, payload=[])
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             await client.async_get_range(
                 start_time="2025-12-17T00:00:00+02:00"
@@ -277,7 +283,7 @@ class TestAsyncValidateKey:
         """Valid key returns True."""
         mock_aioresponses.get(API_MEASUREMENTS_URL, payload=[])
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             result = await client.async_validate_key()
 
@@ -289,7 +295,7 @@ class TestAsyncValidateKey:
         """Invalid key raises ElisaKotiakkuAuthError."""
         mock_aioresponses.get(API_MEASUREMENTS_URL, status=401)
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             with pytest.raises(ElisaKotiakkuAuthError):
                 await client.async_validate_key()
@@ -310,7 +316,7 @@ class TestSetSession:
         mock_aioresponses.get(API_MEASUREMENTS_URL, payload=SAMPLE_API_RESPONSE)
 
         client = ElisaKotiakkuApiClient(api_key=api_key)
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client.set_session(session)
             result = await client.async_get_latest()
 
@@ -331,7 +337,7 @@ class TestRequestHeaders:
         """x-api-key header is included in requests."""
         mock_aioresponses.get(API_MEASUREMENTS_URL, payload=[])
 
-        async with aiohttp.ClientSession() as session:
+        async with _test_client_session() as session:
             client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
             await client.async_validate_key()
 
