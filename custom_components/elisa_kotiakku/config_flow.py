@@ -8,7 +8,13 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
@@ -16,7 +22,13 @@ from .api import (
     ElisaKotiakkuApiError,
     ElisaKotiakkuAuthError,
 )
-from .const import CONF_API_KEY, DOMAIN
+from .const import (
+    CONF_API_KEY,
+    CONF_STARTUP_BACKFILL_HOURS,
+    DEFAULT_STARTUP_BACKFILL_HOURS,
+    DOMAIN,
+    MAX_BACKFILL_HOURS,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,10 +51,30 @@ STEP_RECONFIGURE_DATA_SCHEMA = vol.Schema(
 )
 
 
+def _options_data_schema(startup_backfill_hours: int) -> vol.Schema:
+    """Return options form schema with current values as defaults."""
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_STARTUP_BACKFILL_HOURS,
+                default=startup_backfill_hours,
+            ): vol.All(int, vol.Range(min=0, max=MAX_BACKFILL_HOURS)),
+        }
+    )
+
+
 class ElisaKotiakkuConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     """Handle a config flow for Elisa Kotiakku."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: ConfigEntry,
+    ) -> ElisaKotiakkuOptionsFlow:
+        """Create options flow for this config entry."""
+        return ElisaKotiakkuOptionsFlow(config_entry)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -194,3 +226,30 @@ def _unique_id_from_api_key(api_key: str) -> str:
     """Generate a non-secret unique ID from the API key."""
     api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
     return f"api_key_{api_key_hash}"
+
+
+class ElisaKotiakkuOptionsFlow(OptionsFlow):
+    """Options flow for Elisa Kotiakku."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialise options flow."""
+        self._config_entry = config_entry
+
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Manage integration options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        current_startup_hours = int(
+            self._config_entry.options.get(
+                CONF_STARTUP_BACKFILL_HOURS,
+                DEFAULT_STARTUP_BACKFILL_HOURS,
+            )
+        )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_options_data_schema(current_startup_hours),
+        )

@@ -98,5 +98,7 @@ def mock_coordinator(mock_config_entry: MagicMock) -> MagicMock:
     coordinator.data = SAMPLE_MEASUREMENT
     coordinator.config_entry = mock_config_entry
     coordinator.energy_last_period_end = SAMPLE_MEASUREMENT.period_end
+    coordinator.energy_totals = {}
+    coordinator.energy_processed_period_count = 0
     coordinator.get_energy_total = MagicMock(return_value=0.0)
     return coordinator

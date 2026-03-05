@@ -12,9 +12,14 @@ from custom_components.elisa_kotiakku.api import (
 )
 from custom_components.elisa_kotiakku.config_flow import (
     ElisaKotiakkuConfigFlow,
+    ElisaKotiakkuOptionsFlow,
     _unique_id_from_api_key,
 )
-from custom_components.elisa_kotiakku.const import CONF_API_KEY
+from custom_components.elisa_kotiakku.const import (
+    CONF_API_KEY,
+    CONF_STARTUP_BACKFILL_HOURS,
+    DEFAULT_STARTUP_BACKFILL_HOURS,
+)
 
 
 @pytest.fixture
@@ -282,3 +287,64 @@ class TestReconfigureFlow:
 
         reconfigure_flow.async_abort.assert_called_once_with(reason="already_configured")
         reconfigure_flow.async_update_reload_and_abort.assert_not_called()
+
+
+class TestOptionsFlow:
+    """Tests for options flow."""
+
+    def test_async_get_options_flow(self) -> None:
+        """Config flow should expose options flow handler."""
+        entry = MagicMock()
+        options_flow = ElisaKotiakkuConfigFlow.async_get_options_flow(entry)
+        assert isinstance(options_flow, ElisaKotiakkuOptionsFlow)
+
+    async def test_options_show_form_with_current_value(self) -> None:
+        """Options step should show current startup backfill value."""
+        entry = MagicMock()
+        entry.options = {CONF_STARTUP_BACKFILL_HOURS: 12}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_show_form = MagicMock(return_value={"type": "form"})
+
+        await options_flow.async_step_init(user_input=None)
+
+        options_flow.async_show_form.assert_called_once()
+        kwargs = options_flow.async_show_form.call_args.kwargs
+        assert kwargs["step_id"] == "init"
+        schema = kwargs["data_schema"]
+        assert schema({CONF_STARTUP_BACKFILL_HOURS: 12}) == {
+            CONF_STARTUP_BACKFILL_HOURS: 12
+        }
+
+    async def test_options_show_form_uses_default_when_missing(self) -> None:
+        """Options step should fallback to default when no options are set."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_show_form = MagicMock(return_value={"type": "form"})
+
+        await options_flow.async_step_init(user_input=None)
+
+        kwargs = options_flow.async_show_form.call_args.kwargs
+        schema = kwargs["data_schema"]
+        assert schema({}) == {
+            CONF_STARTUP_BACKFILL_HOURS: DEFAULT_STARTUP_BACKFILL_HOURS
+        }
+
+    async def test_options_create_entry_on_submit(self) -> None:
+        """Submitting options should create options entry."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_create_entry = MagicMock(
+            return_value={"type": "create_entry"}
+        )
+
+        result = await options_flow.async_step_init(
+            user_input={CONF_STARTUP_BACKFILL_HOURS: 48}
+        )
+
+        assert result["type"] == "create_entry"
+        options_flow.async_create_entry.assert_called_once_with(
+            title="",
+            data={CONF_STARTUP_BACKFILL_HOURS: 48},
+        )

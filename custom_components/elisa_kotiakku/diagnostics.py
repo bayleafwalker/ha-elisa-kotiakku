@@ -34,4 +34,5 @@ async def async_get_config_entry_diagnostics(
         "latest_measurement": measurement,
         "energy_totals": coordinator.energy_totals,
         "energy_last_period_end": coordinator.energy_last_period_end,
+        "energy_processed_period_count": coordinator.energy_processed_period_count,
     }

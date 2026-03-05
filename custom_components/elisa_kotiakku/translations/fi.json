@@ -105,5 +105,19 @@
         "name": "Akun purkuenergia"
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Asetukset",
+        "description": "Määritä integraation valinnaiset asetukset.",
+        "data": {
+          "startup_backfill_hours": "Käynnistyksen backfill (tuntia)"
+        },
+        "data_description": {
+          "startup_backfill_hours": "Kuinka monta tuntia historiallista dataa haetaan automaattisesti käynnistyksen yhteydessä. Aseta 0 poistaaksesi automaattisen backfillin."
+        }
+      }
+    }
   }
 }

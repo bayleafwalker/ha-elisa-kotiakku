@@ -51,6 +51,15 @@ Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku
 3. Paste your API key.
 4. The integration creates a device with all sensor entities.
 
+### Options
+
+In **Settings → Devices & Services → Elisa Kotiakku → Configure**, you can set:
+- `startup_backfill_hours`: automatically backfill historical energy windows on startup (`0` disables this).
+
+Notes:
+- Verbose logging is managed by Home Assistant logger settings (not an integration option).
+- Per-entity enable/disable is managed from the Entity Registry (no duplicate integration toggle added).
+
 ## Sensor entities
 
 | Entity | Unit | Description |

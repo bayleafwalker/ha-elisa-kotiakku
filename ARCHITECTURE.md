@@ -55,6 +55,7 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
   - Other API errors → `UpdateFailed`
 - Maintains cumulative energy totals (kWh) derived from each 5-minute window.
 - Persists cumulative totals and the last processed `period_end` via HA storage.
+- Tracks processed `period_end` values to deduplicate polling + backfill windows.
 - Provides `async_backfill_energy(start_time, end_time)` to import historical windows into totals.
 
 ### Config flow (`config_flow.py`)
@@ -62,6 +63,7 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
 - **User step**: user provides API key; validates with a live API call before creating the entry.
 - **Reauthentication flow**: triggered when the coordinator receives a `ConfigEntryAuthFailed`. Prompts for a new API key, validates it, and updates the config entry.
 - **Reconfigure flow**: allows changing API key from the UI after setup.
+- **Options flow**: supports `startup_backfill_hours` (automatic historical import on startup).
 - Uses a SHA-256 fingerprint of API key as `unique_id` to prevent duplicate entries without storing raw secret as identifier.
 
 ### Sensor platform (`sensor.py`)
@@ -95,6 +97,11 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
 - `elisa_kotiakku.backfill_energy` imports historical windows via `async_get_range()`.
 - Supports optional `entry_id`, `start_time`, `end_time`, and `hours` fields.
 - Updates cumulative energy entities without requiring direct database writes.
+
+### Startup Backfill Option
+
+- On setup, the integration can automatically run a backfill for the last `N` hours (`startup_backfill_hours` option).
+- This is useful for restoring Energy Dashboard continuity after HA downtime/restarts.
 
 ## API Schema
 
@@ -165,7 +172,8 @@ Implemented rules by tier:
 | `parallel-updates` | ✅ | `PARALLEL_UPDATES = 0` (coordinator-based) |
 | `reauthentication-flow` | ✅ | `async_step_reauth` / `async_step_reauth_confirm` |
 | `reconfigure-flow` | ✅ | `async_step_reconfigure` |
-| `test-coverage` | ✅ | 85 tests covering all modules |
+| `options-flow` | ✅ | `startup_backfill_hours` option |
+| `test-coverage` | ✅ | 91 tests covering all modules |
 
 ### Gold
 | Rule | Status | Notes |

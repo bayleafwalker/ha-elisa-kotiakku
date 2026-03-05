@@ -20,6 +20,7 @@ from custom_components.elisa_kotiakku.const import (
     ATTR_HOURS,
     ATTR_START_TIME,
     CONF_API_KEY,
+    CONF_STARTUP_BACKFILL_HOURS,
     DOMAIN,
     SERVICE_BACKFILL_ENERGY,
 )
@@ -44,6 +45,7 @@ async def test_async_setup_entry_sets_runtime_data_and_forwards_platforms(
     coordinator = MagicMock()
     coordinator.async_load_energy_state = AsyncMock()
     coordinator.async_config_entry_first_refresh = AsyncMock()
+    coordinator.async_backfill_energy = AsyncMock(return_value=0)
 
     with (
         patch.object(
@@ -75,9 +77,48 @@ async def test_async_setup_entry_sets_runtime_data_and_forwards_platforms(
     )
     coordinator.async_load_energy_state.assert_awaited_once()
     coordinator.async_config_entry_first_refresh.assert_awaited_once()
+    coordinator.async_backfill_energy.assert_not_awaited()
     assert entry.runtime_data is coordinator
     mock_forward_setups.assert_awaited_once_with(entry, [Platform.SENSOR])
     assert hass.services.has_service(DOMAIN, SERVICE_BACKFILL_ENERGY)
+
+
+async def test_async_setup_entry_runs_startup_backfill_when_configured(hass) -> None:
+    """Startup backfill option should trigger async_backfill_energy call."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_API_KEY: "test-api-key"},
+        options={CONF_STARTUP_BACKFILL_HOURS: 6},
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = MagicMock()
+    coordinator.async_load_energy_state = AsyncMock()
+    coordinator.async_config_entry_first_refresh = AsyncMock()
+    coordinator.async_backfill_energy = AsyncMock(return_value=3)
+
+    with (
+        patch.object(
+            hass.config_entries,
+            "async_forward_entry_setups",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "custom_components.elisa_kotiakku.async_get_clientsession",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "custom_components.elisa_kotiakku.ElisaKotiakkuApiClient"
+        ),
+        patch(
+            "custom_components.elisa_kotiakku.ElisaKotiakkuCoordinator",
+            return_value=coordinator,
+        ),
+    ):
+        result = await async_setup_entry(hass, entry)
+
+    assert result is True
+    coordinator.async_backfill_energy.assert_awaited_once()
 
 
 async def test_async_unload_entry_unloads_platforms_and_removes_service(hass) -> None:

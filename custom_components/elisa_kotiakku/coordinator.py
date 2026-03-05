@@ -54,6 +54,7 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
             key: 0.0 for key in ENERGY_TOTAL_KEYS
         }
         self.energy_last_period_end: str | None = None
+        self._processed_period_ends: set[str] = set()
         self._energy_store: Store[dict[str, Any]] = Store(
             hass,
             _ENERGY_STORE_VERSION,
@@ -76,6 +77,12 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         last_period_end = stored.get("last_period_end")
         if isinstance(last_period_end, str):
             self.energy_last_period_end = last_period_end
+
+        processed_periods = stored.get("processed_period_ends")
+        if isinstance(processed_periods, list):
+            self._processed_period_ends = {
+                item for item in processed_periods if isinstance(item, str)
+            }
 
     async def _async_update_data(self) -> MeasurementData | None:
         """Fetch the latest measurement from the API."""
@@ -131,13 +138,14 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         """Process one or more windows into cumulative energy counters."""
         processed = 0
         for measurement in sorted(measurements, key=lambda item: item.period_end):
-            if not self._is_new_period(measurement.period_end):
+            if not self._is_unprocessed_period(measurement.period_end):
                 continue
 
             for key, delta in self._measurement_energy_deltas(measurement).items():
                 self.energy_totals[key] += delta
 
-            self.energy_last_period_end = measurement.period_end
+            self._processed_period_ends.add(measurement.period_end)
+            self._update_last_period_end(measurement.period_end)
             processed += 1
 
         if processed:
@@ -154,18 +162,30 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
             return None
         return round(value, 6)
 
-    def _is_new_period(self, period_end: str) -> bool:
+    @property
+    def energy_processed_period_count(self) -> int:
+        """Return number of period_end markers already processed."""
+        return len(self._processed_period_ends)
+
+    def _is_unprocessed_period(self, period_end: str) -> bool:
         """Return True if this period has not yet been included in totals."""
+        return period_end not in self._processed_period_ends
+
+    def _update_last_period_end(self, period_end: str) -> None:
+        """Update marker of latest processed period."""
         if self.energy_last_period_end is None:
-            return True
+            self.energy_last_period_end = period_end
+            return
 
         current = _parse_iso8601(period_end)
         previous = _parse_iso8601(self.energy_last_period_end)
-
         if current is not None and previous is not None:
-            return current > previous
+            if current > previous:
+                self.energy_last_period_end = period_end
+            return
 
-        return period_end != self.energy_last_period_end
+        if period_end > self.energy_last_period_end:
+            self.energy_last_period_end = period_end
 
     def _measurement_energy_deltas(
         self, measurement: MeasurementData
@@ -196,6 +216,7 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
             {
                 "totals": self.energy_totals,
                 "last_period_end": self.energy_last_period_end,
+                "processed_period_ends": list(self._processed_period_ends),
             }
         )
 

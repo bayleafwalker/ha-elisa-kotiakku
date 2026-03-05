@@ -22,7 +22,9 @@ from .const import (
     ATTR_HOURS,
     ATTR_START_TIME,
     CONF_API_KEY,
+    CONF_STARTUP_BACKFILL_HOURS,
     DEFAULT_BACKFILL_HOURS,
+    DEFAULT_STARTUP_BACKFILL_HOURS,
     DOMAIN,
     MAX_BACKFILL_HOURS,
     SERVICE_BACKFILL_ENERGY,
@@ -62,10 +64,12 @@ async def async_setup_entry(
     await coordinator.async_load_energy_state()
     await coordinator.async_config_entry_first_refresh()
 
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _async_register_backfill_service(hass)
+    await _async_run_startup_backfill(entry)
 
     return True
 
@@ -140,6 +144,50 @@ def _async_register_backfill_service(hass: HomeAssistant) -> None:
         SERVICE_BACKFILL_ENERGY,
         _async_handle_backfill,
         schema=BACKFILL_SERVICE_SCHEMA,
+    )
+
+
+async def _async_update_listener(
+    hass: HomeAssistant,
+    entry: ElisaKotiakkuConfigEntry,
+) -> None:
+    """Reload integration when options are updated."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def _async_run_startup_backfill(entry: ElisaKotiakkuConfigEntry) -> None:
+    """Optionally run a startup historical backfill for energy counters."""
+    backfill_hours = int(
+        entry.options.get(
+            CONF_STARTUP_BACKFILL_HOURS,
+            DEFAULT_STARTUP_BACKFILL_HOURS,
+        )
+    )
+    if backfill_hours <= 0:
+        return
+
+    end = dt_util.now()
+    start = end - timedelta(hours=backfill_hours)
+
+    coordinator = entry.runtime_data
+    try:
+        processed = await coordinator.async_backfill_energy(
+            start_time=start.isoformat(),
+            end_time=end.isoformat(),
+        )
+    except (ConfigEntryAuthFailed, UpdateFailed) as err:
+        _LOGGER.warning(
+            "Startup backfill failed for entry %s: %s",
+            entry.entry_id,
+            err,
+        )
+        return
+
+    _LOGGER.info(
+        "Startup backfill processed %s window(s) for entry %s (%s hours)",
+        processed,
+        entry.entry_id,
+        backfill_hours,
     )
 
 

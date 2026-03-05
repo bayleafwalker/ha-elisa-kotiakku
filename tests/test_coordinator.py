@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -234,6 +235,35 @@ class TestBackfill:
         coordinator.async_update_listeners.assert_called_once()
         mock_api_client.async_get_range.assert_awaited_once()
 
+    async def test_backfill_processes_older_windows_after_latest_update(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Backfill should still import older periods after latest polling."""
+        older = replace(
+            SAMPLE_MEASUREMENT,
+            period_start="2025-12-16T23:55:00+02:00",
+            period_end="2025-12-17T00:00:00+02:00",
+        )
+        mock_api_client.async_get_range.return_value = [older]
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+
+        # First poll latest
+        await coordinator._async_update_data()
+        before = coordinator.get_energy_total("grid_import_energy")
+
+        # Then backfill older
+        processed = await coordinator.async_backfill_energy("a", "b")
+        after = coordinator.get_energy_total("grid_import_energy")
+
+        assert processed == 1
+        assert after is not None and before is not None
+        assert after > before
+
     async def test_backfill_wraps_api_error_as_update_failed(
         self,
         mock_hass: MagicMock,
@@ -288,6 +318,7 @@ class TestEnergyState:
             return_value={
                 "totals": {"grid_import_energy": 12.5},
                 "last_period_end": "2025-12-17T01:00:00+02:00",
+                "processed_period_ends": ["2025-12-17T01:00:00+02:00"],
             }
         )
 
@@ -295,3 +326,4 @@ class TestEnergyState:
 
         assert coordinator.get_energy_total("grid_import_energy") == 12.5
         assert coordinator.energy_last_period_end == "2025-12-17T01:00:00+02:00"
+        assert coordinator.energy_processed_period_count == 1

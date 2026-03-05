@@ -5,6 +5,7 @@ from datetime import timedelta
 DOMAIN = "elisa_kotiakku"
 
 CONF_API_KEY = "api_key"
+CONF_STARTUP_BACKFILL_HOURS = "startup_backfill_hours"
 
 API_BASE_URL = "https://residential.gridle.com/api/public"
 API_MEASUREMENTS_URL = f"{API_BASE_URL}/measurements"
@@ -19,6 +20,7 @@ ATTR_START_TIME = "start_time"
 ATTR_END_TIME = "end_time"
 ATTR_HOURS = "hours"
 DEFAULT_BACKFILL_HOURS = 24
+DEFAULT_STARTUP_BACKFILL_HOURS = 0
 MAX_BACKFILL_HOURS = 24 * 31
 
 ENERGY_TOTAL_KEYS: tuple[str, ...] = (

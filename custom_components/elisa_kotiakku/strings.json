@@ -105,5 +105,19 @@
         "name": "Battery discharge energy"
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "description": "Configure optional integration behavior.",
+        "data": {
+          "startup_backfill_hours": "Startup backfill hours"
+        },
+        "data_description": {
+          "startup_backfill_hours": "How many hours of historical data to import automatically on startup. Set to 0 to disable automatic startup backfill."
+        }
+      }
+    }
   }
 }

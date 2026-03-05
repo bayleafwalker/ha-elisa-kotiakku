@@ -75,7 +75,8 @@ class TestDiagnostics:
         assert "latest_measurement" in result
         assert "energy_totals" in result
         assert "energy_last_period_end" in result
-        assert len(result) == 4
+        assert "energy_processed_period_count" in result
+        assert len(result) == 5
 
     async def test_energy_data_included(
         self, mock_entry_with_coordinator: MagicMock
@@ -95,3 +96,4 @@ class TestDiagnostics:
 
         assert result["energy_totals"]["grid_import_energy"] == 1.23
         assert result["energy_last_period_end"] == "2025-12-17T00:05:00+02:00"
+        assert result["energy_processed_period_count"] == 0
