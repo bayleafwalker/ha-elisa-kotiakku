@@ -1,7 +1,7 @@
 {
   "domain": "elisa_kotiakku",
   "name": "Elisa Kotiakku",
-  "codeowners": [],
+  "codeowners": ["@bayleafwalker"],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/bayleafwalker/ha-elisa-kotiakku",

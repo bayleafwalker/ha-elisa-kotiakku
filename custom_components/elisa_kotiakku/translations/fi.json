@@ -42,6 +42,29 @@
       "reconfigure_successful": "Uudelleenmääritys onnistui."
     }
   },
+  "exceptions": {
+    "entry_not_loaded": {
+      "message": "Määritystä {entry_id} ei ole ladattu Elisa Kotiakku -integraatiolle."
+    },
+    "no_loaded_entries": {
+      "message": "Yhtään ladattua Elisa Kotiakku -määritystä ei löytynyt."
+    },
+    "backfill_failed": {
+      "message": "Backfill epäonnistui: {reason}"
+    },
+    "no_new_windows_backfilled": {
+      "message": "Uusia mittausikkunoita ei backfillattu. Pyydetty aikaväli saattaa olla jo tuotu."
+    },
+    "invalid_end_time": {
+      "message": "Virheellinen end_time-arvo."
+    },
+    "invalid_start_time": {
+      "message": "Virheellinen start_time-arvo."
+    },
+    "start_must_be_before_end": {
+      "message": "start_time-arvon on oltava aiempi kuin end_time-arvo."
+    }
+  },
   "entity": {
     "sensor": {
       "battery_power": {

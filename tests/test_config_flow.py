@@ -289,6 +289,61 @@ class TestReconfigureFlow:
         reconfigure_flow.async_update_reload_and_abort.assert_not_called()
 
 
+class TestGenericExceptionHandling:
+    """Tests for the catch-all exception branches in each flow step."""
+
+    async def test_user_step_generic_exception_shows_cannot_connect(
+        self, flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """An unexpected exception during user-step validation must show cannot_connect."""
+        with patch.object(
+            flow,
+            "_async_validate_api_key",
+            side_effect=RuntimeError("unexpected server error"),
+        ):
+            result = await flow.async_step_user(
+                user_input={"api_key": "some-key"}
+            )
+
+        flow.async_show_form.assert_called_once()
+        errors = flow.async_show_form.call_args.kwargs["errors"]
+        assert errors == {"base": "cannot_connect"}
+
+    async def test_reauth_step_generic_exception_shows_cannot_connect(
+        self, reauth_flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """An unexpected exception during reauth validation must show cannot_connect."""
+        with patch.object(
+            reauth_flow,
+            "_async_validate_api_key",
+            side_effect=RuntimeError("unexpected server error"),
+        ):
+            result = await reauth_flow.async_step_reauth_confirm(
+                user_input={"api_key": "new-key"}
+            )
+
+        reauth_flow.async_show_form.assert_called_once()
+        errors = reauth_flow.async_show_form.call_args.kwargs["errors"]
+        assert errors == {"base": "cannot_connect"}
+
+    async def test_reconfigure_step_generic_exception_shows_cannot_connect(
+        self, reconfigure_flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """An unexpected exception during reconfigure validation must show cannot_connect."""
+        with patch.object(
+            reconfigure_flow,
+            "_async_validate_api_key",
+            side_effect=RuntimeError("unexpected server error"),
+        ):
+            result = await reconfigure_flow.async_step_reconfigure(
+                user_input={"api_key": "new-key"}
+            )
+
+        reconfigure_flow.async_show_form.assert_called_once()
+        errors = reconfigure_flow.async_show_form.call_args.kwargs["errors"]
+        assert errors == {"base": "cannot_connect"}
+
+
 class TestOptionsFlow:
     """Tests for options flow."""
 

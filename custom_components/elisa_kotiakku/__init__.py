@@ -10,8 +10,9 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
+from homeassistant.exceptions import ConfigEntryAuthFailed, ServiceValidationError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -50,6 +51,12 @@ BACKFILL_SERVICE_SCHEMA = vol.Schema(
 type ElisaKotiakkuConfigEntry = ConfigEntry[ElisaKotiakkuCoordinator]
 
 
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up Elisa Kotiakku integration."""
+    _async_register_backfill_service(hass)
+    return True
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ElisaKotiakkuConfigEntry
 ) -> bool:
@@ -68,7 +75,6 @@ async def async_setup_entry(
     entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _async_register_backfill_service(hass)
     await _async_run_startup_backfill(entry)
 
     return True
@@ -78,12 +84,7 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: ElisaKotiakkuConfigEntry
 ) -> bool:
     """Unload a config entry."""
-    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-    if unloaded and not _has_loaded_entries(hass):
-        hass.services.async_remove(DOMAIN, SERVICE_BACKFILL_ENERGY)
-
-    return unloaded
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 def _async_register_backfill_service(hass: HomeAssistant) -> None:
@@ -102,11 +103,18 @@ def _async_register_backfill_service(hass: HomeAssistant) -> None:
                 entry for entry in entries if entry.entry_id == target_entry_id
             ]
             if not entries:
-                raise HomeAssistantError(
-                    f"Entry '{target_entry_id}' is not loaded for {DOMAIN}"
+                raise ServiceValidationError(
+                    f"Entry '{target_entry_id}' is not loaded for {DOMAIN}",
+                    translation_domain=DOMAIN,
+                    translation_key="entry_not_loaded",
+                    translation_placeholders={"entry_id": target_entry_id},
                 )
         elif not entries:
-            raise HomeAssistantError("No loaded Elisa Kotiakku config entries found")
+            raise ServiceValidationError(
+                "No loaded Elisa Kotiakku config entries found",
+                translation_domain=DOMAIN,
+                translation_key="no_loaded_entries",
+            )
 
         start_iso = start.isoformat()
         end_iso = end.isoformat()
@@ -120,9 +128,19 @@ def _async_register_backfill_service(hass: HomeAssistant) -> None:
                     end_time=end_iso,
                 )
             except ConfigEntryAuthFailed as err:
-                raise HomeAssistantError(str(err)) from err
+                raise ServiceValidationError(
+                    str(err),
+                    translation_domain=DOMAIN,
+                    translation_key="backfill_failed",
+                    translation_placeholders={"reason": str(err)},
+                ) from err
             except UpdateFailed as err:
-                raise HomeAssistantError(str(err)) from err
+                raise ServiceValidationError(
+                    str(err),
+                    translation_domain=DOMAIN,
+                    translation_key="backfill_failed",
+                    translation_placeholders={"reason": str(err)},
+                ) from err
 
             _LOGGER.info(
                 "Backfilled %s window(s) for entry %s (%s -> %s)",
@@ -134,9 +152,11 @@ def _async_register_backfill_service(hass: HomeAssistant) -> None:
             total_processed += processed
 
         if total_processed == 0:
-            raise HomeAssistantError(
+            raise ServiceValidationError(
                 "No new measurement windows were backfilled. "
-                "The requested range may already be imported."
+                "The requested range may already be imported.",
+                translation_domain=DOMAIN,
+                translation_key="no_new_windows_backfilled",
             )
 
     hass.services.async_register(
@@ -200,23 +220,38 @@ def _resolve_backfill_range(data: dict[str, Any]) -> tuple[datetime, datetime]:
 
     end = now if end_raw is None else dt_util.parse_datetime(end_raw)
     if end is None:
-        raise HomeAssistantError(f"Invalid '{ATTR_END_TIME}' value")
+        raise ServiceValidationError(
+            f"Invalid '{ATTR_END_TIME}' value",
+            translation_domain=DOMAIN,
+            translation_key="invalid_end_time",
+        )
     end = _ensure_timezone(end)
 
     if start_raw is not None:
         start = dt_util.parse_datetime(start_raw)
         if start is None:
-            raise HomeAssistantError(f"Invalid '{ATTR_START_TIME}' value")
+            raise ServiceValidationError(
+                f"Invalid '{ATTR_START_TIME}' value",
+                translation_domain=DOMAIN,
+                translation_key="invalid_start_time",
+            )
         start = _ensure_timezone(start)
     else:
         start = end - timedelta(hours=hours)
 
     if start >= end:
-        raise HomeAssistantError(
-            f"'{ATTR_START_TIME}' must be earlier than '{ATTR_END_TIME}'"
+        raise ServiceValidationError(
+            f"'{ATTR_START_TIME}' must be earlier than '{ATTR_END_TIME}'",
+            translation_domain=DOMAIN,
+            translation_key="start_must_be_before_end",
         )
 
     return start, end
+
+
+def _has_loaded_entries(hass: HomeAssistant) -> bool:
+    """Return True if at least one config entry is loaded."""
+    return bool(_loaded_entries(hass))
 
 
 def _ensure_timezone(value: datetime) -> datetime:
@@ -234,8 +269,3 @@ def _loaded_entries(hass: HomeAssistant) -> list[ElisaKotiakkuConfigEntry]:
         if entry.state is ConfigEntryState.LOADED and entry.runtime_data is not None:
             loaded.append(entry)
     return loaded
-
-
-def _has_loaded_entries(hass: HomeAssistant) -> bool:
-    """Return True if at least one config entry is loaded."""
-    return bool(_loaded_entries(hass))

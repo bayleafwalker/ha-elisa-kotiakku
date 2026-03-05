@@ -42,6 +42,29 @@
       "reconfigure_successful": "Reconfiguration successful."
     }
   },
+  "exceptions": {
+    "entry_not_loaded": {
+      "message": "Entry {entry_id} is not loaded for Elisa Kotiakku."
+    },
+    "no_loaded_entries": {
+      "message": "No loaded Elisa Kotiakku config entries found."
+    },
+    "backfill_failed": {
+      "message": "Backfill failed: {reason}"
+    },
+    "no_new_windows_backfilled": {
+      "message": "No new measurement windows were backfilled. The requested range may already be imported."
+    },
+    "invalid_end_time": {
+      "message": "Invalid end_time value."
+    },
+    "invalid_start_time": {
+      "message": "Invalid start_time value."
+    },
+    "start_must_be_before_end": {
+      "message": "start_time must be earlier than end_time."
+    }
+  },
   "entity": {
     "sensor": {
       "battery_power": {

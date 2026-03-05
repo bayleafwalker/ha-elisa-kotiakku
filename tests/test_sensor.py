@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -13,6 +13,7 @@ from custom_components.elisa_kotiakku.sensor import (
     SENSOR_DESCRIPTIONS,
     ElisaKotiakkuEnergySensor,
     ElisaKotiakkuSensor,
+    async_setup_entry,
 )
 
 from .conftest import SAMPLE_MEASUREMENT
@@ -142,6 +143,14 @@ class TestElisaKotiakkuSensor:
         assert attrs["period_start"] == "2025-12-17T00:00:00+02:00"
         assert attrs["period_end"] == "2025-12-17T00:05:00+02:00"
 
+    def test_extra_state_attributes_none_when_data_is_none(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """extra_state_attributes must return None when coordinator has no data."""
+        mock_coordinator.data = None
+        sensor = self._make_sensor(mock_coordinator, "solar_power")
+        assert sensor.extra_state_attributes is None
+
     def test_unique_id(self, mock_coordinator: MagicMock) -> None:
         sensor = self._make_sensor(mock_coordinator, "grid_power")
         assert sensor.unique_id == "test_entry_id_grid_power"
@@ -194,3 +203,45 @@ class TestQualityScaleCompliance:
         for desc in SENSOR_DESCRIPTIONS:
             if desc.key in diagnostic_keys:
                 assert desc.entity_category == EntityCategory.DIAGNOSTIC
+
+
+class TestDeviceInfo:
+    """Tests for the device_info property on entity base class."""
+
+    def test_device_info_returns_correct_identifiers(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """device_info must return a DeviceInfo with the correct identifiers."""
+        from custom_components.elisa_kotiakku.const import DOMAIN, MANUFACTURER, MODEL
+
+        desc = next(d for d in SENSOR_DESCRIPTIONS if d.key == "battery_power")
+        sensor = ElisaKotiakkuSensor(mock_coordinator, desc)
+
+        info = sensor.device_info
+        assert (DOMAIN, "test_entry_id") in info["identifiers"]
+        assert info["manufacturer"] == MANUFACTURER
+        assert info["model"] == MODEL
+
+
+class TestAsyncSetupEntry:
+    """Tests for the async_setup_entry platform entrypoint."""
+
+    async def test_async_setup_entry_adds_all_sensor_entities(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """async_setup_entry must create and register all sensor entities."""
+        mock_entry = MagicMock()
+        mock_entry.runtime_data = mock_coordinator
+        mock_hass = MagicMock()
+        mock_add_entities = MagicMock()
+
+        await async_setup_entry(mock_hass, mock_entry, mock_add_entities)
+
+        mock_add_entities.assert_called_once()
+        entities = mock_add_entities.call_args[0][0]
+        sensor_count = len(SENSOR_DESCRIPTIONS) + len(ENERGY_SENSOR_DESCRIPTIONS)
+        assert len(entities) == sensor_count
+        power_sensors = [e for e in entities if isinstance(e, ElisaKotiakkuSensor)]
+        energy_sensors = [e for e in entities if isinstance(e, ElisaKotiakkuEnergySensor)]
+        assert len(power_sensors) == len(SENSOR_DESCRIPTIONS)
+        assert len(energy_sensors) == len(ENERGY_SENSOR_DESCRIPTIONS)
