@@ -63,7 +63,7 @@ def _options_data_schema(startup_backfill_hours: int) -> vol.Schema:
     )
 
 
-class ElisaKotiakkuConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
+class ElisaKotiakkuConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Elisa Kotiakku."""
 
     VERSION = 1

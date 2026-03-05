@@ -1,0 +1,38 @@
+automation:
+  - alias: Elisa Kotiakku low SoC
+    id: elisa_kotiakku_low_soc
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.elisa_kotiakku_battery_state_of_charge
+        below: 20
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          title: Kotiakku
+          message: Battery state of charge is below 20%.
+
+  - alias: Elisa Kotiakku expensive grid import
+    id: elisa_kotiakku_expensive_import
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.elisa_kotiakku_spot_price
+        above: 15
+    conditions:
+      - condition: numeric_state
+        entity_id: sensor.elisa_kotiakku_grid_power
+        above: 3
+    actions:
+      - action: persistent_notification.create
+        data:
+          title: Kotiakku
+          message: Spot price is high and grid import is above 3 kW.
+
+  - alias: Elisa Kotiakku nightly backfill
+    id: elisa_kotiakku_nightly_backfill
+    triggers:
+      - trigger: time
+        at: "03:10:00"
+    actions:
+      - action: elisa_kotiakku.backfill_energy
+        data:
+          hours: 24

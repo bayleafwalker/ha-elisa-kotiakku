@@ -18,13 +18,17 @@ class ElisaKotiakkuEntity(CoordinatorEntity[ElisaKotiakkuCoordinator]):
     def __init__(self, coordinator: ElisaKotiakkuCoordinator, key: str) -> None:
         """Initialise the entity."""
         super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{key}"
+        config_entry = coordinator.config_entry
+        assert config_entry is not None
+        self._attr_unique_id = f"{config_entry.entry_id}_{key}"
 
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
+        config_entry = self.coordinator.config_entry
+        assert config_entry is not None
         return DeviceInfo(
-            identifiers={(DOMAIN, self.coordinator.config_entry.entry_id)},
+            identifiers={(DOMAIN, config_entry.entry_id)},
             name="Elisa Kotiakku",
             manufacturer=MANUFACTURER,
             model=MODEL,

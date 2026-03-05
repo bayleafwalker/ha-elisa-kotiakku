@@ -168,7 +168,16 @@ class ElisaKotiakkuApiClient:
                         f"Validation error (422): {body}"
                     )
                 resp.raise_for_status()
-                return await resp.json()
+                payload = await resp.json()
+                if not isinstance(payload, list):
+                    raise ElisaKotiakkuApiError(
+                        "Unexpected API response type (expected list)"
+                    )
+                if any(not isinstance(item, dict) for item in payload):
+                    raise ElisaKotiakkuApiError(
+                        "Unexpected API response item type (expected object)"
+                    )
+                return payload
         except aiohttp.ClientError as err:
             raise ElisaKotiakkuApiError(
                 f"Communication error: {err}"

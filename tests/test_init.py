@@ -7,17 +7,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.const import Platform
-from homeassistant.exceptions import HomeAssistantError
-from homeassistant.util import dt as dt_util
-
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, ServiceValidationError
 from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from custom_components.elisa_kotiakku import (
     _async_register_backfill_service,
     _async_update_listener,
     _ensure_timezone,
     _resolve_backfill_range,
+    async_setup,
     async_setup_entry,
     async_unload_entry,
 )
@@ -87,6 +86,12 @@ async def test_async_setup_entry_sets_runtime_data_and_forwards_platforms(
     coordinator.async_backfill_energy.assert_not_awaited()
     assert entry.runtime_data is coordinator
     mock_forward_setups.assert_awaited_once_with(entry, [Platform.SENSOR])
+
+
+async def test_async_setup_registers_backfill_service(hass) -> None:
+    """async_setup (integration-level) must register the backfill service."""
+    result = await async_setup(hass, {})
+    assert result is True
     assert hass.services.has_service(DOMAIN, SERVICE_BACKFILL_ENERGY)
 
 
@@ -128,33 +133,23 @@ async def test_async_setup_entry_runs_startup_backfill_when_configured(hass) -> 
     coordinator.async_backfill_energy.assert_awaited_once()
 
 
-async def test_async_unload_entry_unloads_platforms_and_removes_service(hass) -> None:
-    """Entry unload should remove service when no entries remain loaded."""
+async def test_async_unload_entry_unloads_platforms(hass) -> None:
+    """Entry unload should delegate to async_unload_platforms and return its result."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={CONF_API_KEY: "test-api-key"},
     )
     entry.add_to_hass(hass)
 
-    _async_register_backfill_service(hass)
-    assert hass.services.has_service(DOMAIN, SERVICE_BACKFILL_ENERGY)
-
-    with (
-        patch.object(
-            hass.config_entries,
-            "async_unload_platforms",
-            AsyncMock(return_value=True),
-        ) as mock_unload_platforms,
-        patch(
-            "custom_components.elisa_kotiakku._has_loaded_entries",
-            return_value=False,
-        ),
-    ):
+    with patch.object(
+        hass.config_entries,
+        "async_unload_platforms",
+        AsyncMock(return_value=True),
+    ) as mock_unload_platforms:
         result = await async_unload_entry(hass, entry)
 
     assert result is True
     mock_unload_platforms.assert_awaited_once_with(entry, [Platform.SENSOR])
-    assert not hass.services.has_service(DOMAIN, SERVICE_BACKFILL_ENERGY)
 
 
 async def test_backfill_service_calls_coordinator(hass) -> None:
@@ -187,7 +182,7 @@ async def test_backfill_service_raises_when_no_entries(hass) -> None:
         return_value=[],
     ):
         _async_register_backfill_service(hass)
-        with pytest.raises(HomeAssistantError, match="No loaded"):
+        with pytest.raises(ServiceValidationError, match="No loaded"):
             await hass.services.async_call(
                 DOMAIN,
                 SERVICE_BACKFILL_ENERGY,
@@ -205,7 +200,7 @@ def test_resolve_backfill_range_defaults_hours() -> None:
 def test_resolve_backfill_range_rejects_invalid_order() -> None:
     """Start time must be earlier than end time."""
     start_time = datetime(2026, 3, 4, tzinfo=dt_util.UTC).isoformat()
-    with pytest.raises(HomeAssistantError, match=ATTR_START_TIME):
+    with pytest.raises(ServiceValidationError, match=ATTR_START_TIME):
         _resolve_backfill_range(
             {
                 ATTR_START_TIME: start_time,
@@ -216,8 +211,8 @@ def test_resolve_backfill_range_rejects_invalid_order() -> None:
 
 
 def test_resolve_backfill_range_invalid_end_time_raises() -> None:
-    """An unparseable end_time string must raise HomeAssistantError."""
-    with pytest.raises(HomeAssistantError, match=ATTR_END_TIME):
+    """An unparseable end_time string must raise ServiceValidationError."""
+    with pytest.raises(ServiceValidationError, match=ATTR_END_TIME):
         _resolve_backfill_range(
             {
                 ATTR_END_TIME: "not-a-date",
@@ -227,9 +222,9 @@ def test_resolve_backfill_range_invalid_end_time_raises() -> None:
 
 
 def test_resolve_backfill_range_invalid_start_time_raises() -> None:
-    """An unparseable start_time string must raise HomeAssistantError."""
+    """An unparseable start_time string must raise ServiceValidationError."""
     end_time = datetime(2026, 3, 5, tzinfo=dt_util.UTC).isoformat()
-    with pytest.raises(HomeAssistantError, match=ATTR_START_TIME):
+    with pytest.raises(ServiceValidationError, match=ATTR_START_TIME):
         _resolve_backfill_range(
             {
                 ATTR_START_TIME: "not-a-date",
@@ -269,7 +264,7 @@ def test_ensure_timezone_adds_utc_to_naive_datetime() -> None:
 
 
 async def test_backfill_service_raises_for_unknown_entry_id(hass) -> None:
-    """Service call with an unknown entry_id must raise HomeAssistantError."""
+    """Service call with an unknown entry_id must raise ServiceValidationError."""
     loaded_entry = MagicMock()
     loaded_entry.entry_id = "real-entry-id"
     loaded_entry.runtime_data = MagicMock()
@@ -279,7 +274,7 @@ async def test_backfill_service_raises_for_unknown_entry_id(hass) -> None:
         return_value=[loaded_entry],
     ):
         _async_register_backfill_service(hass)
-        with pytest.raises(HomeAssistantError, match="not loaded"):
+        with pytest.raises(ServiceValidationError, match="not loaded"):
             await hass.services.async_call(
                 DOMAIN,
                 SERVICE_BACKFILL_ENERGY,
@@ -289,7 +284,7 @@ async def test_backfill_service_raises_for_unknown_entry_id(hass) -> None:
 
 
 async def test_backfill_service_raises_on_auth_failure(hass) -> None:
-    """ConfigEntryAuthFailed from the coordinator must surface as HomeAssistantError."""
+    """ConfigEntryAuthFailed from the coordinator must surface as ServiceValidationError."""
     coordinator = MagicMock()
     coordinator.async_backfill_energy = AsyncMock(
         side_effect=ConfigEntryAuthFailed("Bad key")
@@ -303,7 +298,7 @@ async def test_backfill_service_raises_on_auth_failure(hass) -> None:
         return_value=[loaded_entry],
     ):
         _async_register_backfill_service(hass)
-        with pytest.raises(HomeAssistantError, match="Bad key"):
+        with pytest.raises(ServiceValidationError, match="Bad key"):
             await hass.services.async_call(
                 DOMAIN,
                 SERVICE_BACKFILL_ENERGY,
@@ -313,7 +308,7 @@ async def test_backfill_service_raises_on_auth_failure(hass) -> None:
 
 
 async def test_backfill_service_raises_on_api_error(hass) -> None:
-    """UpdateFailed from the coordinator must surface as HomeAssistantError."""
+    """UpdateFailed from the coordinator must surface as ServiceValidationError."""
     coordinator = MagicMock()
     coordinator.async_backfill_energy = AsyncMock(
         side_effect=UpdateFailed("Connection lost")
@@ -327,7 +322,7 @@ async def test_backfill_service_raises_on_api_error(hass) -> None:
         return_value=[loaded_entry],
     ):
         _async_register_backfill_service(hass)
-        with pytest.raises(HomeAssistantError, match="Connection lost"):
+        with pytest.raises(ServiceValidationError, match="Connection lost"):
             await hass.services.async_call(
                 DOMAIN,
                 SERVICE_BACKFILL_ENERGY,
@@ -349,7 +344,7 @@ async def test_backfill_service_raises_when_no_new_windows(hass) -> None:
         return_value=[loaded_entry],
     ):
         _async_register_backfill_service(hass)
-        with pytest.raises(HomeAssistantError, match="already be imported"):
+        with pytest.raises(ServiceValidationError, match="already be imported"):
             await hass.services.async_call(
                 DOMAIN,
                 SERVICE_BACKFILL_ENERGY,
@@ -396,25 +391,20 @@ async def test_startup_backfill_fails_gracefully_on_error(hass) -> None:
 
 
 async def test_async_unload_keeps_service_when_other_entries_remain(hass) -> None:
-    """Service must not be removed when at least one entry is still loaded."""
+    """The backfill service must remain present after a single entry is unloaded (service is integration-level)."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={CONF_API_KEY: "test-api-key"},
     )
     entry.add_to_hass(hass)
 
-    _async_register_backfill_service(hass)
+    await async_setup(hass, {})
+    assert hass.services.has_service(DOMAIN, SERVICE_BACKFILL_ENERGY)
 
-    with (
-        patch.object(
-            hass.config_entries,
-            "async_unload_platforms",
-            AsyncMock(return_value=True),
-        ),
-        patch(
-            "custom_components.elisa_kotiakku._has_loaded_entries",
-            return_value=True,
-        ),
+    with patch.object(
+        hass.config_entries,
+        "async_unload_platforms",
+        AsyncMock(return_value=True),
     ):
         result = await async_unload_entry(hass, entry)
 

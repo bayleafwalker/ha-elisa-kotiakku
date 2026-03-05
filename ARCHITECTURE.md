@@ -97,6 +97,8 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
 - `elisa_kotiakku.backfill_energy` imports historical windows via `async_get_range()`.
 - Supports optional `entry_id`, `start_time`, `end_time`, and `hours` fields.
 - Updates cumulative energy entities without requiring direct database writes.
+- **Registration pattern**: the service is registered once in `async_setup()` (integration level), not per config entry. A guard prevents double-registration if HA reloads the integration without a full restart. This means the service remains available even when all config entries are unloaded — it validates that at least one loaded entry exists at call time.
+- All service-level validation errors raise `ServiceValidationError` with `translation_domain=DOMAIN` and a `translation_key` so HA renders them as human-readable messages (keys are in `strings.json` under `exceptions`).
 
 ### Startup Backfill Option
 
@@ -173,7 +175,7 @@ Implemented rules by tier:
 | `reauthentication-flow` | ✅ | `async_step_reauth` / `async_step_reauth_confirm` |
 | `reconfigure-flow` | ✅ | `async_step_reconfigure` |
 | `options-flow` | ✅ | `startup_backfill_hours` option |
-| `test-coverage` | ✅ | 91 tests covering all modules |
+| `test-coverage` | ✅ | 120 tests, 97 % coverage across all modules |
 
 ### Gold
 | Rule | Status | Notes |

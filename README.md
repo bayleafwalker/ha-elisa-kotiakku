@@ -1,45 +1,46 @@
 # Elisa Kotiakku — Home Assistant Integration
 
-WORK IN PROGRESS
+[![CI](https://github.com/bayleafwalker/ha-elisa-kotiakku/actions/workflows/ci.yml/badge.svg)](https://github.com/bayleafwalker/ha-elisa-kotiakku/actions/workflows/ci.yml)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-18BCF2?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-All use on your own responsibility. AI generated code.
+> [!IMPORTANT]
+> Unofficial custom integration. Not affiliated with or endorsed by Elisa.
 
-Unofficial custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku/) home battery systems. Provides real-time sensor data from your inverter, battery, solar panels, and grid connection via the Gridle public API.
+Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku/) home battery systems. It fetches 5-minute measurement windows from the Gridle public API and exposes battery, solar, grid, house, and cumulative energy sensors.
 
-## Features
+## Highlights
 
-- Battery: power (kW), state of charge (%), temperature (°C)
-- Solar: generation power (kW)
-- Grid: net import/export power (kW)
-- House: total consumption (kW)
-- Power-flow breakdown: solar→house, solar→battery, solar→grid, grid→house, grid→battery, battery→house, battery→grid
-- Electricity spot price (c/kWh)
-- Energy Dashboard-ready cumulative energy sensors (kWh, `TOTAL_INCREASING`)
-- Automatic 5-minute polling with API rate-limit backoff support
-- Historical backfill service for energy counters (`elisa_kotiakku.backfill_energy`)
+- 5-minute polling aligned with source data granularity
+- Full UI config flow (API key only)
+- Energy Dashboard-ready cumulative `kWh` sensors (`TOTAL_INCREASING`)
+- Historical backfill action: `elisa_kotiakku.backfill_energy`
+- Reauthentication + reconfiguration support
 - English and Finnish UI translations
 
-## Use cases
+## Quick start
 
-- Monitor battery charging/discharging and state of charge in near real time.
-- Track solar production, grid import/export, and household demand from one device.
-- Feed Home Assistant Energy Dashboard using cumulative `kWh` sensors.
-- Backfill missing energy history after Home Assistant downtime.
+1. Install through HACS (recommended) or manually copy `custom_components/elisa_kotiakku`.
+2. Restart Home Assistant.
+3. Add integration from **Settings -> Devices & Services**.
+4. Paste API key from the Elisa Kotiakku app.
+5. (Optional) run a backfill after first setup.
 
 ## Installation
 
 ### HACS (recommended)
 
 1. Open HACS in Home Assistant.
-2. Go to **Integrations** → three-dot menu → **Custom repositories**.
-3. Add repository URL: `https://github.com/bayleafwalker/ha-elisa-kotiakku`  
-   Category: **Integration**.
-4. Search for "Elisa Kotiakku" and install.
+2. Go to **Integrations** -> three-dot menu -> **Custom repositories**.
+3. Add repository URL: `https://github.com/bayleafwalker/ha-elisa-kotiakku` and category **Integration**.
+4. Search for **Elisa Kotiakku** and install.
 5. Restart Home Assistant.
 
 ### Manual
 
-1. Copy the `custom_components/elisa_kotiakku` folder into your Home Assistant `config/custom_components/` directory.
+1. Copy `custom_components/elisa_kotiakku` into `config/custom_components/`.
 2. Restart Home Assistant.
 
 ### Installation parameters
@@ -52,125 +53,105 @@ Unofficial custom Home Assistant integration for [Elisa Kotiakku](https://elisa.
 
 ## Configuration
 
-### Getting your API key
+### Get your API key
 
-1. Open the **Elisa Kotiakku** app on your smartphone.
-2. Go to **Settings** → **Data**.
-3. Under **API**, tap **Create key**.
-4. Copy the generated API key.
+1. Open **Elisa Kotiakku** mobile app.
+2. Go to **Settings -> Data**.
+3. Under **API**, select **Create key**.
+4. Copy the generated key.
 
-### Adding the integration
+### Add the integration
 
-1. Go to **Settings → Devices & Services → Add Integration**.
-2. Search for **Elisa Kotiakku**.
-3. Paste your API key.
-4. The integration creates a device with all sensor entities.
+1. Open **Settings -> Devices & Services -> Add Integration**.
+2. Search **Elisa Kotiakku**.
+3. Paste API key.
+4. Finish setup.
 
 ### Options
 
-In **Settings → Devices & Services → Elisa Kotiakku → Configure**, you can set:
-- `startup_backfill_hours`: automatically backfill historical energy windows on startup (`0` disables this).
+In **Settings -> Devices & Services -> Elisa Kotiakku -> Configure**:
 
-Notes:
-- Verbose logging is managed by Home Assistant logger settings (not an integration option).
-- Per-entity enable/disable is managed from the Entity Registry (no duplicate integration toggle added).
+- `startup_backfill_hours`: automatically import historical windows at startup (`0` disables).
 
 ### Configuration parameters
 
 | Parameter | Required | Where set | Description |
 |---|---|---|---|
-| `api_key` | Yes | Config flow | API key generated in the Elisa Kotiakku app |
-| `startup_backfill_hours` | No | Options flow | Hours of historical windows imported on startup (`0` disables startup backfill) |
+| `api_key` | Yes | Config flow | API key generated in the Kotiakku app |
+| `startup_backfill_hours` | No | Options flow | Hours of history to import on startup |
 
 ## Supported devices
 
-- Elisa Kotiakku systems that expose data through the Gridle public API.
-- One integration entry represents one API key / one Kotiakku system.
-- Unsupported: non-Kotiakku systems and direct local inverter protocols (for example Modbus/LAN-only APIs).
+- Elisa Kotiakku systems with Gridle public API access
+- One config entry per API key / installation
+- Not supported: local-only inverter interfaces (for example direct Modbus)
 
 ## Supported functionality
 
-- Read-only sensor entities (power, state of charge, temperature, spot price, and cumulative energy).
-- One custom action: `elisa_kotiakku.backfill_energy`.
-- Reauthentication and reconfiguration from the Home Assistant UI.
+- Read-only sensors: battery, solar, grid, house, spot price, cumulative energy
+- One action: `elisa_kotiakku.backfill_energy`
+- Reauthentication and reconfiguration via UI
 
 ## Sensor entities
 
 | Entity | Unit | Description |
 |---|---|---|
 | Battery power | kW | Positive = discharging, negative = charging |
-| Battery state of charge | % | 0–100 % |
+| Battery state of charge | % | Battery SoC (0-100) |
 | Battery temperature | °C | Battery temperature |
-| Solar power | kW | Solar panel generation |
-| Grid power | kW | Positive = importing, negative = exporting |
+| Solar power | kW | Solar generation |
+| Grid power | kW | Positive = import, negative = export |
 | House power | kW | Household consumption |
-| Solar to house | kW | Solar power consumed directly |
-| Solar to battery | kW | Solar power charging battery |
-| Solar to grid | kW | Solar power exported |
-| Grid to house | kW | Grid power consumed |
-| Grid to battery | kW | Grid power charging battery |
-| Battery to house | kW | Battery power consumed |
-| Battery to grid | kW | Battery power exported |
+| Solar to house | kW | Direct solar usage |
+| Solar to battery | kW | Solar charging battery |
+| Solar to grid | kW | Solar export |
+| Grid to house | kW | Grid to load flow |
+| Grid to battery | kW | Grid charging battery |
+| Battery to house | kW | Battery to load flow |
+| Battery to grid | kW | Battery export |
 | Spot price | c/kWh | Electricity spot price |
-| Grid import energy | kWh | Cumulative grid import for Energy Dashboard |
-| Grid export energy | kWh | Cumulative grid export for Energy Dashboard |
+| Grid import energy | kWh | Cumulative import (Energy Dashboard) |
+| Grid export energy | kWh | Cumulative export (Energy Dashboard) |
 | Solar production energy | kWh | Cumulative solar production |
-| House consumption energy | kWh | Cumulative house consumption (derived from house power) |
-| Battery charge energy | kWh | Cumulative battery charging energy |
-| Battery discharge energy | kWh | Cumulative battery discharging energy |
+| House consumption energy | kWh | Cumulative house consumption |
+| Battery charge energy | kWh | Cumulative battery charging |
+| Battery discharge energy | kWh | Cumulative battery discharging |
 
 ## Actions
 
-Use the built-in service to backfill historical windows into cumulative energy sensors.
+Use `elisa_kotiakku.backfill_energy` to import historical windows into cumulative energy counters.
 
 ```yaml
-service: elisa_kotiakku.backfill_energy
+action: elisa_kotiakku.backfill_energy
 data:
   hours: 48
 ```
 
 Optional fields:
-- `entry_id`: target one config entry if you have multiple.
-- `start_time`: ISO-8601 datetime (if omitted, `hours` is used).
-- `end_time`: ISO-8601 datetime (defaults to now).
 
-## Data updates
+- `entry_id`: target a single integration entry (if multiple configured)
+- `start_time`: ISO-8601 datetime (timezone recommended)
+- `end_time`: ISO-8601 datetime (defaults to now)
+- `hours`: used only when `start_time` is omitted
 
-- Polling interval: every 5 minutes.
-- Source data: 5-minute averaged windows from Gridle API.
-- Normal poll reads the latest complete window.
-- Historical imports use the same endpoint with `start_time`/`end_time`.
+## Dashboard ideas
 
-## Known limitations
+Recommended cards for a first dashboard view:
 
-- Cloud dependency: data is unavailable if Gridle API is down or unreachable.
-- Read-only integration: no remote control actions for the battery/inverter.
-- Data granularity is limited to 5-minute averages (no sub-minute values).
-- API range requests are limited by provider constraints (maximum 31-day span per request).
+1. Gauge card for battery SoC
+2. Entities card for key current values (battery, solar, grid, house, spot price)
+3. History graph for power trends
+4. Statistics graph for cumulative energy counters
 
-## Troubleshooting
+Complete example view: [docs/dashboard-example.yaml](docs/dashboard-example.yaml)
 
-- `Invalid API key` during setup: regenerate the key in the Kotiakku app and run reauthentication.
-- Sensors are `unavailable`: check Home Assistant internet access and Gridle API availability.
-- Backfill reports no new windows: requested range has likely already been processed.
-- Slow updates after throttling: API rate limiting temporarily increases polling interval.
+## Automation examples
 
-## Examples
-
-Example backfill for a fixed range:
-
-```yaml
-service: elisa_kotiakku.backfill_energy
-data:
-  start_time: "2026-03-01T00:00:00+02:00"
-  end_time: "2026-03-03T00:00:00+02:00"
-```
-
-Example automation trigger when battery state of charge drops below 20%:
+### Low battery SoC notification
 
 ```yaml
 automation:
-  - alias: Elisa Kotiakku low SOC
+  - alias: Elisa Kotiakku low SoC
     triggers:
       - trigger: numeric_state
         entity_id: sensor.elisa_kotiakku_battery_state_of_charge
@@ -178,32 +159,78 @@ automation:
     actions:
       - action: persistent_notification.create
         data:
-          title: "Kotiakku"
-          message: "Battery state of charge is below 20%."
+          title: Kotiakku
+          message: Battery state of charge is below 20%.
 ```
+
+### High spot price + high grid import alert
+
+```yaml
+automation:
+  - alias: Elisa Kotiakku expensive import
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.elisa_kotiakku_spot_price
+        above: 15
+    conditions:
+      - condition: numeric_state
+        entity_id: sensor.elisa_kotiakku_grid_power
+        above: 3
+    actions:
+      - action: persistent_notification.create
+        data:
+          title: Kotiakku
+          message: Spot price is high and grid import is above 3 kW.
+```
+
+More examples: [docs/automation-examples.yaml](docs/automation-examples.yaml)
+
+## Data updates
+
+- Polling interval: every 5 minutes
+- Source: Gridle 5-minute averaged windows
+- Default polling fetches latest completed window
+- Backfill uses same endpoint with `start_time`/`end_time`
+
+## Known limitations
+
+- Cloud dependency: unavailable when Gridle API is down or unreachable
+- Read-only integration (no control actions)
+- Data granularity limited to 5-minute averages
+- API time-range requests limited to max 31 days per request
+
+## Troubleshooting
+
+- `Invalid API key`: generate a new key in app and run reauthentication
+- Sensors show `unavailable`: verify internet/API availability
+- Backfill imports 0 windows: range likely already processed
+- Slow updates after throttling: temporary rate-limit backoff is active
 
 ## Removal instructions
 
-1. In Home Assistant, go to **Settings → Devices & Services**.
-2. Open **Elisa Kotiakku** and choose **Delete**.
-3. If installed manually, remove `custom_components/elisa_kotiakku`.
-4. Restart Home Assistant.
+1. Open **Settings -> Devices & Services**.
+2. Open **Elisa Kotiakku**.
+3. Select **Delete**.
+4. If manually installed, remove `custom_components/elisa_kotiakku`.
+5. Restart Home Assistant.
 
 ## Brand assets
-
-Custom integration brand files are included in:
 
 - `custom_components/elisa_kotiakku/brand/icon.png`
 - `custom_components/elisa_kotiakku/brand/logo.png`
 
-If this integration is ever submitted to Home Assistant Core, the same assets should also be submitted to the `home-assistant/brands` repository.
-
 ## API reference
 
 - Endpoint: `GET https://residential.gridle.com/api/public/measurements`
-- Auth: `x-api-key` header
+- Auth header: `x-api-key`
 - Docs: https://residential.gridle.com/api/public/docs
 
 ## License
 
-MIT
+This repository's source code is licensed under the MIT License. See [LICENSE](LICENSE).
+
+## Legal and Attribution
+
+- This project is not affiliated with or endorsed by Elisa.
+- Use of the Elisa/Gridle API is subject to the provider's terms and policies.
+- This project includes AI-assisted contributions reviewed by maintainers.

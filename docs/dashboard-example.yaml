@@ -1,0 +1,43 @@
+title: Kotiakku
+path: kotiakku
+icon: mdi:home-battery
+cards:
+  - type: gauge
+    name: Battery SoC
+    entity: sensor.elisa_kotiakku_battery_state_of_charge
+    min: 0
+    max: 100
+    severity:
+      green: 40
+      yellow: 20
+      red: 0
+
+  - type: entities
+    title: Current power
+    entities:
+      - entity: sensor.elisa_kotiakku_battery_power
+      - entity: sensor.elisa_kotiakku_solar_power
+      - entity: sensor.elisa_kotiakku_grid_power
+      - entity: sensor.elisa_kotiakku_house_power
+      - entity: sensor.elisa_kotiakku_spot_price
+
+  - type: history-graph
+    title: Power trend (24h)
+    hours_to_show: 24
+    entities:
+      - entity: sensor.elisa_kotiakku_battery_power
+      - entity: sensor.elisa_kotiakku_solar_power
+      - entity: sensor.elisa_kotiakku_grid_power
+      - entity: sensor.elisa_kotiakku_house_power
+
+  - type: statistics-graph
+    title: Cumulative energy (7d)
+    chart_type: line
+    period: day
+    days_to_show: 7
+    stat_types:
+      - change
+    entities:
+      - entity: sensor.elisa_kotiakku_grid_import_energy
+      - entity: sensor.elisa_kotiakku_grid_export_energy
+      - entity: sensor.elisa_kotiakku_solar_production_energy

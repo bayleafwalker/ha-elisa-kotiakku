@@ -16,8 +16,7 @@ target-version = "py312"
 select = ["E", "F", "I", "UP"]
 
 [tool.mypy]
-python_version = "3.12"
-ignore_missing_imports = true
-follow_imports = "skip"
+python_version = "3.13"
+strict = true
 warn_unused_ignores = true
 show_error_codes = true
