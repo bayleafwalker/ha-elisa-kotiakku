@@ -32,6 +32,10 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+_UNIQUE_ID_PREFIX = "api_key_"
+_UNIQUE_ID_KDF_SALT = b"elisa_kotiakku_unique_id_v1"
+_UNIQUE_ID_KDF_ITERATIONS = 120_000
+
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_API_KEY): vol.All(str, vol.Length(min=1)),
@@ -84,6 +88,9 @@ class ElisaKotiakkuConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             api_key = user_input[CONF_API_KEY].strip()
+
+            if self._is_api_key_already_configured(api_key):
+                return self.async_abort(reason="already_configured")
 
             # Prevent duplicate entries with the same key
             await self.async_set_unique_id(_unique_id_from_api_key(api_key))
@@ -141,7 +148,11 @@ class ElisaKotiakkuConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected error during reauthentication")
                 errors["base"] = "cannot_connect"
             else:
-                if self._unique_id_taken_by_other_entry(unique_id, reauth_entry):
+                if self._unique_id_taken_by_other_entry(
+                    unique_id,
+                    api_key,
+                    reauth_entry,
+                ):
                     return self.async_abort(reason="already_configured")
 
                 self.hass.config_entries.async_update_entry(
@@ -181,7 +192,9 @@ class ElisaKotiakkuConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             else:
                 if self._unique_id_taken_by_other_entry(
-                    unique_id, reconfigure_entry
+                    unique_id,
+                    api_key,
+                    reconfigure_entry,
                 ):
                     return self.async_abort(reason="already_configured")
 
@@ -207,25 +220,49 @@ class ElisaKotiakkuConfigFlow(ConfigFlow, domain=DOMAIN):
         client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
         await client.async_validate_key()
 
+    def _is_api_key_already_configured(self, api_key: str) -> bool:
+        """Return True if any config entry already owns this API key."""
+        for entry in self._async_current_entries():
+            if self._entry_has_api_key(entry, api_key):
+                return True
+        return False
+
     def _unique_id_taken_by_other_entry(
         self,
         unique_id: str,
+        api_key: str,
         current_entry: ConfigEntry[Any],
     ) -> bool:
         """Return True if unique ID already belongs to another config entry."""
         for entry in self._async_current_entries():
             if (
                 entry.entry_id != current_entry.entry_id
-                and entry.unique_id == unique_id
+                and (
+                    entry.unique_id == unique_id
+                    or self._entry_has_api_key(entry, api_key)
+                )
             ):
                 return True
         return False
 
+    @staticmethod
+    def _entry_has_api_key(entry: ConfigEntry[Any], api_key: str) -> bool:
+        """Return True if config entry data contains the same API key."""
+        stored_key = entry.data.get(CONF_API_KEY)
+        if not isinstance(stored_key, str):
+            return False
+        return stored_key.strip() == api_key
+
 
 def _unique_id_from_api_key(api_key: str) -> str:
-    """Generate a non-secret unique ID from the API key."""
-    api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
-    return f"api_key_{api_key_hash}"
+    """Generate a deterministic non-secret unique ID from the API key."""
+    api_key_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        api_key.encode(),
+        _UNIQUE_ID_KDF_SALT,
+        _UNIQUE_ID_KDF_ITERATIONS,
+    ).hex()[:16]
+    return f"{_UNIQUE_ID_PREFIX}{api_key_hash}"
 
 
 class ElisaKotiakkuOptionsFlow(OptionsFlow):

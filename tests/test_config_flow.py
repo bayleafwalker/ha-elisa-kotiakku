@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import voluptuous as vol
 
 from custom_components.elisa_kotiakku.api import (
     ElisaKotiakkuApiError,
@@ -19,6 +21,7 @@ from custom_components.elisa_kotiakku.const import (
     CONF_API_KEY,
     CONF_STARTUP_BACKFILL_HOURS,
     DEFAULT_STARTUP_BACKFILL_HOURS,
+    MAX_BACKFILL_HOURS,
 )
 
 
@@ -95,6 +98,18 @@ class TestUniqueIdDerivation:
         assert key not in unique_id
         assert unique_id.startswith("api_key_")
 
+    def test_fingerprint_has_expected_prefix(self) -> None:
+        """Derived fingerprint should preserve the expected prefix."""
+        key = "super-secret-key"
+        assert _unique_id_from_api_key(key).startswith("api_key_")
+
+    def test_fingerprint_has_16_hex_char_suffix(self) -> None:
+        """Derived fingerprint suffix should be lowercase hexadecimal."""
+        unique_id = _unique_id_from_api_key("super-secret-key")
+        suffix = unique_id.removeprefix("api_key_")
+        assert len(suffix) == 16
+        assert re.fullmatch(r"[0-9a-f]{16}", suffix) is not None
+
 
 class TestValidationHelper:
     """Tests for shared API-key validation helper."""
@@ -148,6 +163,20 @@ class TestUserStep:
             title="Elisa Kotiakku",
             data={CONF_API_KEY: "key-123"},
         )
+
+    async def test_aborts_if_api_key_already_exists(
+        self, flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """New setup should detect entries with the same configured API key."""
+        existing_entry = MagicMock()
+        existing_entry.data = {CONF_API_KEY: "same-key"}
+        flow._async_current_entries.return_value = [existing_entry]
+
+        await flow.async_step_user(user_input={CONF_API_KEY: "same-key"})
+
+        flow.async_abort.assert_called_once_with(reason="already_configured")
+        flow.async_set_unique_id.assert_not_awaited()
+        flow._abort_if_unique_id_configured.assert_not_called()
 
     async def test_shows_invalid_auth_error(
         self, flow: ElisaKotiakkuConfigFlow
@@ -213,6 +242,42 @@ class TestReauthFlow:
             data_updates={CONF_API_KEY: "new-key"},
         )
 
+    async def test_reauth_shows_invalid_auth_error(
+        self, reauth_flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """Auth failures in reauth should map to invalid_auth."""
+        reauth_flow._async_validate_api_key = AsyncMock(
+            side_effect=ElisaKotiakkuAuthError("bad key")
+        )
+
+        await reauth_flow.async_step_reauth_confirm(
+            user_input={CONF_API_KEY: "bad-key"}
+        )
+
+        reauth_flow.async_show_form.assert_called_once()
+        assert (
+            reauth_flow.async_show_form.call_args.kwargs["errors"]["base"]
+            == "invalid_auth"
+        )
+
+    async def test_reauth_shows_cannot_connect_on_api_error(
+        self, reauth_flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """API errors in reauth should map to cannot_connect."""
+        reauth_flow._async_validate_api_key = AsyncMock(
+            side_effect=ElisaKotiakkuApiError("network down")
+        )
+
+        await reauth_flow.async_step_reauth_confirm(
+            user_input={CONF_API_KEY: "bad-key"}
+        )
+
+        reauth_flow.async_show_form.assert_called_once()
+        assert (
+            reauth_flow.async_show_form.call_args.kwargs["errors"]["base"]
+            == "cannot_connect"
+        )
+
     async def test_reauth_aborts_if_key_used_by_other_entry(
         self, reauth_flow: ElisaKotiakkuConfigFlow
     ) -> None:
@@ -221,7 +286,27 @@ class TestReauthFlow:
         reauth_entry = reauth_flow._get_reauth_entry.return_value
         other_entry = MagicMock()
         other_entry.entry_id = "other-entry-id"
+        other_entry.unique_id = "api_key_legacy_fingerprint"
+        other_entry.data = {CONF_API_KEY: "duplicate-key"}
+        reauth_flow._async_current_entries.return_value = [reauth_entry, other_entry]
+
+        await reauth_flow.async_step_reauth_confirm(
+            user_input={CONF_API_KEY: "duplicate-key"}
+        )
+
+        reauth_flow.async_abort.assert_called_once_with(reason="already_configured")
+        reauth_flow.async_update_reload_and_abort.assert_not_called()
+
+    async def test_reauth_aborts_if_unique_id_used_by_other_entry(
+        self, reauth_flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """Reauth should also abort when only unique_id collides."""
+        reauth_flow._async_validate_api_key = AsyncMock(return_value=None)
+        reauth_entry = reauth_flow._get_reauth_entry.return_value
+        other_entry = MagicMock()
+        other_entry.entry_id = "other-entry-id"
         other_entry.unique_id = _unique_id_from_api_key("duplicate-key")
+        other_entry.data = {CONF_API_KEY: "other-key"}
         reauth_flow._async_current_entries.return_value = [reauth_entry, other_entry]
 
         await reauth_flow.async_step_reauth_confirm(
@@ -267,6 +352,42 @@ class TestReconfigureFlow:
             reason="reconfigure_successful",
         )
 
+    async def test_reconfigure_shows_invalid_auth_error(
+        self, reconfigure_flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """Auth failures in reconfigure should map to invalid_auth."""
+        reconfigure_flow._async_validate_api_key = AsyncMock(
+            side_effect=ElisaKotiakkuAuthError("bad key")
+        )
+
+        await reconfigure_flow.async_step_reconfigure(
+            user_input={CONF_API_KEY: "bad-key"}
+        )
+
+        reconfigure_flow.async_show_form.assert_called_once()
+        assert (
+            reconfigure_flow.async_show_form.call_args.kwargs["errors"]["base"]
+            == "invalid_auth"
+        )
+
+    async def test_reconfigure_shows_cannot_connect_on_api_error(
+        self, reconfigure_flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """API errors in reconfigure should map to cannot_connect."""
+        reconfigure_flow._async_validate_api_key = AsyncMock(
+            side_effect=ElisaKotiakkuApiError("network down")
+        )
+
+        await reconfigure_flow.async_step_reconfigure(
+            user_input={CONF_API_KEY: "bad-key"}
+        )
+
+        reconfigure_flow.async_show_form.assert_called_once()
+        assert (
+            reconfigure_flow.async_show_form.call_args.kwargs["errors"]["base"]
+            == "cannot_connect"
+        )
+
     async def test_reconfigure_aborts_if_duplicate(
         self, reconfigure_flow: ElisaKotiakkuConfigFlow
     ) -> None:
@@ -275,7 +396,8 @@ class TestReconfigureFlow:
         reconfigure_entry = reconfigure_flow._get_reconfigure_entry.return_value
         other_entry = MagicMock()
         other_entry.entry_id = "other-entry-id"
-        other_entry.unique_id = _unique_id_from_api_key("duplicate-key")
+        other_entry.unique_id = "api_key_legacy_fingerprint"
+        other_entry.data = {CONF_API_KEY: "duplicate-key"}
         reconfigure_flow._async_current_entries.return_value = [
             reconfigure_entry,
             other_entry,
@@ -289,6 +411,61 @@ class TestReconfigureFlow:
             reason="already_configured"
         )
         reconfigure_flow.async_update_reload_and_abort.assert_not_called()
+
+    async def test_reconfigure_aborts_if_unique_id_used_by_other_entry(
+        self, reconfigure_flow: ElisaKotiakkuConfigFlow
+    ) -> None:
+        """Reconfigure should also abort when only unique_id collides."""
+        reconfigure_flow._async_validate_api_key = AsyncMock(return_value=None)
+        reconfigure_entry = reconfigure_flow._get_reconfigure_entry.return_value
+        other_entry = MagicMock()
+        other_entry.entry_id = "other-entry-id"
+        other_entry.unique_id = _unique_id_from_api_key("duplicate-key")
+        other_entry.data = {CONF_API_KEY: "other-key"}
+        reconfigure_flow._async_current_entries.return_value = [
+            reconfigure_entry,
+            other_entry,
+        ]
+
+        await reconfigure_flow.async_step_reconfigure(
+            user_input={CONF_API_KEY: "duplicate-key"}
+        )
+
+        reconfigure_flow.async_abort.assert_called_once_with(
+            reason="already_configured"
+        )
+        reconfigure_flow.async_update_reload_and_abort.assert_not_called()
+
+
+class TestApiKeyMatchingHelpers:
+    """Tests for internal API key matching helper logic."""
+
+    def test_entry_has_api_key_false_when_missing(self) -> None:
+        """Missing API key in entry data should not match."""
+        entry = MagicMock()
+        entry.data = {}
+
+        assert (
+            ElisaKotiakkuConfigFlow._entry_has_api_key(entry, "test-key")
+            is False
+        )
+
+    def test_entry_has_api_key_false_when_non_string(self) -> None:
+        """Non-string API key values should never match."""
+        entry = MagicMock()
+        entry.data = {CONF_API_KEY: 1234}
+
+        assert (
+            ElisaKotiakkuConfigFlow._entry_has_api_key(entry, "1234")
+            is False
+        )
+
+    def test_entry_has_api_key_matches_when_stored_has_whitespace(self) -> None:
+        """Stored API key should be trimmed before comparison."""
+        entry = MagicMock()
+        entry.data = {CONF_API_KEY: "  test-key  "}
+
+        assert ElisaKotiakkuConfigFlow._entry_has_api_key(entry, "test-key") is True
 
 
 class TestGenericExceptionHandling:
@@ -403,3 +580,35 @@ class TestOptionsFlow:
             title="",
             data={CONF_STARTUP_BACKFILL_HOURS: 48},
         )
+
+    async def test_options_schema_accepts_min_and_max_bounds(self) -> None:
+        """Options schema should accept both boundary values."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_show_form = MagicMock(return_value={"type": "form"})
+
+        await options_flow.async_step_init(user_input=None)
+
+        schema = options_flow.async_show_form.call_args.kwargs["data_schema"]
+        assert schema({CONF_STARTUP_BACKFILL_HOURS: 0}) == {
+            CONF_STARTUP_BACKFILL_HOURS: 0
+        }
+        assert schema({CONF_STARTUP_BACKFILL_HOURS: MAX_BACKFILL_HOURS}) == {
+            CONF_STARTUP_BACKFILL_HOURS: MAX_BACKFILL_HOURS
+        }
+
+    async def test_options_schema_rejects_out_of_range_values(self) -> None:
+        """Options schema should reject values outside allowed range."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_show_form = MagicMock(return_value={"type": "form"})
+
+        await options_flow.async_step_init(user_input=None)
+
+        schema = options_flow.async_show_form.call_args.kwargs["data_schema"]
+        with pytest.raises(vol.Invalid):
+            schema({CONF_STARTUP_BACKFILL_HOURS: -1})
+        with pytest.raises(vol.Invalid):
+            schema({CONF_STARTUP_BACKFILL_HOURS: MAX_BACKFILL_HOURS + 1})
