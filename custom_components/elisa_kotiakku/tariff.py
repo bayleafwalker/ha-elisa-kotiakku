@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
@@ -132,7 +133,7 @@ class TariffConfig:
     power_fee_rate_eur_per_kw_month: float = DEFAULT_POWER_FEE_RATE
 
     @classmethod
-    def from_mapping(cls, options: dict[str, Any]) -> TariffConfig:
+    def from_mapping(cls, options: Mapping[str, Any]) -> TariffConfig:
         """Build tariff configuration from config entry options."""
         normalized = normalize_tariff_options(options)
         return cls(
@@ -311,7 +312,7 @@ def cents_per_kwh_to_eur(amount_cents_per_kwh: float, energy_kwh: float) -> floa
     return amount_cents_per_kwh * energy_kwh / 100
 
 
-def normalize_tariff_options(options: dict[str, Any] | Any) -> dict[str, Any]:
+def normalize_tariff_options(options: Mapping[str, Any] | Any) -> dict[str, Any]:
     """Return tariff options with any preset applied."""
     normalized = dict(options)
     preset_key = str(normalized.get(CONF_TARIFF_PRESET, DEFAULT_TARIFF_PRESET))

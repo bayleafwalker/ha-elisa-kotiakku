@@ -830,4 +830,9 @@ def _active_rate_value(
     rates = coordinator.get_active_tariff_rates()
     if rates is None:
         return None
-    return getattr(rates, attribute)
+    value = getattr(rates, attribute)
+    if isinstance(value, str):
+        return value
+    if isinstance(value, int | float):
+        return float(value)
+    return None

@@ -78,6 +78,18 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
             f"{DOMAIN}_{config_entry.entry_id}_energy",
         )
 
+        self.economics_totals: dict[str, float] = {}
+        self.economics_last_period_end: str | None = None
+        self.skipped_savings_window_count = 0
+        self._processed_economics_period_ends: set[str] = set()
+        self._power_fee_hour_buckets: dict[str, dict[str, dict[str, float]]] = {}
+        self._power_fee_monthly_estimates: dict[str, float] = {}
+        self._power_fee_monthly_peaks: dict[str, float] = {}
+        self._baseline_power_fee_hour_buckets: dict[
+            str, dict[str, dict[str, float]]
+        ] = {}
+        self._baseline_power_fee_monthly_estimates: dict[str, float] = {}
+        self._attribution_skipped_window_counts: dict[str, int] = {}
         self._reset_economics_runtime()
         self._economics_store: Store[dict[str, Any]] = Store(
             hass,
@@ -434,20 +446,16 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
 
     def _reset_economics_runtime(self) -> None:
         """Reset all economics state to defaults."""
-        self.economics_totals: dict[str, float] = {
-            key: 0.0 for key in ECONOMICS_TOTAL_KEYS
-        }
-        self.economics_last_period_end: str | None = None
+        self.economics_totals = {key: 0.0 for key in ECONOMICS_TOTAL_KEYS}
+        self.economics_last_period_end = None
         self.skipped_savings_window_count = 0
-        self._processed_economics_period_ends: set[str] = set()
-        self._power_fee_hour_buckets: dict[str, dict[str, dict[str, float]]] = {}
-        self._power_fee_monthly_estimates: dict[str, float] = {}
-        self._power_fee_monthly_peaks: dict[str, float] = {}
-        self._baseline_power_fee_hour_buckets: dict[
-            str, dict[str, dict[str, float]]
-        ] = {}
-        self._baseline_power_fee_monthly_estimates: dict[str, float] = {}
-        self._attribution_skipped_window_counts: dict[str, int] = {
+        self._processed_economics_period_ends = set()
+        self._power_fee_hour_buckets = {}
+        self._power_fee_monthly_estimates = {}
+        self._power_fee_monthly_peaks = {}
+        self._baseline_power_fee_hour_buckets = {}
+        self._baseline_power_fee_monthly_estimates = {}
+        self._attribution_skipped_window_counts = {
             key: 0 for key in ECONOMICS_ATTRIBUTION_SKIP_KEYS
         }
 

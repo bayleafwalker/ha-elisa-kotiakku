@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, time, timedelta
 from statistics import median
-from typing import Any
+from typing import Any, cast
 
 from .api import MeasurementData
 
@@ -316,7 +316,7 @@ class AnalyticsState:
         buckets = self._rolling_buckets()
         if not buckets:
             return None
-        return sum(getattr(bucket, field_name) for bucket in buckets)
+        return sum(cast(float, getattr(bucket, field_name)) for bucket in buckets)
 
     def _reference_date(self) -> date | None:
         """Return latest analytics date."""
