@@ -126,17 +126,19 @@ class TestDiagnostics:
         )
         mock_entry_with_coordinator.runtime_data.economics_processed_period_count = 2
         mock_entry_with_coordinator.runtime_data.skipped_savings_window_count = 1
-        mock_entry_with_coordinator.runtime_data._attribution_skipped_window_counts = {
+        (
+            mock_entry_with_coordinator.runtime_data.get_attribution_skipped_window_counts.return_value
+        ) = {
             "solar_used_in_house_value": 2,
             "solar_export_net_value": 0,
             "battery_house_supply_value": 1,
         }
-        mock_entry_with_coordinator.runtime_data._power_fee_monthly_estimates = {
-            "2025-12": 3.21
-        }
-        mock_entry_with_coordinator.runtime_data._power_fee_monthly_peaks = {
-            "2025-12": 4.32
-        }
+        (
+            mock_entry_with_coordinator.runtime_data.get_power_fee_monthly_estimates.return_value
+        ) = {"2025-12": 3.21}
+        (
+            mock_entry_with_coordinator.runtime_data.get_power_fee_monthly_peaks.return_value
+        ) = {"2025-12": 4.32}
 
         hass = MagicMock()
         result = await async_get_config_entry_diagnostics(

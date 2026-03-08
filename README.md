@@ -126,6 +126,8 @@ Current formulas:
 - Net site cost = purchase + import transfer + electricity tax + export transfer + power fee - export revenue
 - Battery savings = no-battery baseline net cost - actual net cost
 
+`Total battery savings` can be negative if the observed battery behavior underperforms the no-battery baseline for the processed windows.
+
 Asset-attribution helper formulas:
 
 - Solar used in house value = `solar_to_house_kWh * (active import unit price + active import transfer fee + active electricity tax fee)`
@@ -160,6 +162,8 @@ Current power-fee rules:
 
 `monthly_top3_winter_weekday_daytime` uses local time, weekdays, and the winter season `November 1-March 31`.
 
+Power-fee totals and the current-month power-fee estimate are monotonic within a live month. If later hourly recalculation would lower the estimate, use `elisa_kotiakku.rebuild_economics` to replay the month from history.
+
 ## Battery Health And Autonomy Analytics
 
 The integration now includes a separate historical analytics store built from the same 5-minute measurement windows.
@@ -187,12 +191,14 @@ Important caveats:
 - These health metrics are heuristic estimates, not manufacturer-reported state of health.
 - The Gridle API does not expose vendor SOH, cycle counters, or cell-level telemetry.
 - `battery_expected_usable_capacity_kwh` is optional. Set it to a realistic usable capacity if you want health percent, equivalent cycles, and backup runtime sensors to report values.
+- `Estimated backup runtime` uses the latest instantaneous house load, so it can jump when household demand is very low or spiky.
 
 Capacity estimation method:
 
 - The integration tracks monotonic battery charge/discharge episodes from historical windows.
 - A usable-capacity candidate is only accepted when SoC changes by at least `10` percentage points, battery throughput is at least `0.5 kWh`, and the episode remains shorter than `24h`.
 - The published capacity estimate is the median of the latest `20` valid candidates.
+- Episode energy is measured at the battery terminals, so the heuristic estimate includes conversion and round-trip losses and is not equivalent to manufacturer SOH.
 
 Starter tariff presets bundled in the integration:
 

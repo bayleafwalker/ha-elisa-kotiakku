@@ -375,6 +375,19 @@ class TestElisaKotiakkuCoordinatorSensor:
             "tariff_mode": "day_night",
             "tariff_period": "night",
             "skipped_windows": 3,
+            "may_be_negative_when_battery_strategy_underperforms": True,
+        }
+
+    def test_power_fee_estimate_attributes_explain_monotonic_behavior(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        mock_coordinator.economics_last_period_end = "2025-12-17T00:05:00+02:00"
+        sensor = self._make_sensor(mock_coordinator, "current_month_power_fee_estimate")
+        assert sensor.extra_state_attributes == {
+            "last_period_end": "2025-12-17T00:05:00+02:00",
+            "power_fee_rule": "none",
+            "estimate_monotonic_within_month": True,
+            "decreases_require_rebuild": True,
         }
 
     def test_battery_health_attributes_include_heuristic_context(
@@ -464,6 +477,17 @@ class TestElisaKotiakkuCoordinatorSensor:
             "includes_power_fee": False,
             "includes_electricity_tax": False,
             "skipped_directional_windows": 4,
+        }
+
+    def test_backup_runtime_attributes_explain_instantaneous_load_basis(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        mock_coordinator.analytics_last_period_end = "2025-12-18T00:05:00+02:00"
+        sensor = self._make_sensor(mock_coordinator, "estimated_backup_runtime_hours")
+        assert sensor.extra_state_attributes == {
+            "last_period_end": "2025-12-18T00:05:00+02:00",
+            "basis": "instantaneous_house_load",
+            "may_be_spiky_with_low_or_variable_load": True,
         }
 
 

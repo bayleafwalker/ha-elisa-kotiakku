@@ -585,31 +585,6 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
     ),
 )
 
-_ECONOMICS_SENSOR_KEYS = {
-    "active_import_retailer_margin",
-    "active_import_transfer_fee",
-    "active_export_retailer_adjustment",
-    "active_export_transfer_fee",
-    "active_electricity_tax_fee",
-    "active_import_unit_price",
-    "active_export_unit_price",
-    "total_purchase_cost",
-    "total_import_transfer_cost",
-    "total_electricity_tax_cost",
-    "total_export_revenue",
-    "total_export_transfer_cost",
-    "total_power_fee_cost",
-    "total_net_site_electricity_cost",
-    "total_battery_savings",
-    "total_solar_used_in_house_value",
-    "total_solar_export_net_value",
-    "total_battery_house_supply_value",
-    "current_month_power_peak",
-    "current_month_power_fee_estimate",
-    "skipped_savings_windows",
-    "economics_processed_periods",
-}
-
 _ANALYTICS_SENSOR_KEYS = {
     "estimated_usable_battery_capacity",
     "estimated_battery_health",
@@ -628,6 +603,18 @@ _ANALYTICS_SENSOR_KEYS = {
     "analytics_processed_periods",
     "analytics_total_day_buckets",
     "analytics_rolling_day_buckets",
+}
+_COORDINATOR_CONTEXT_FREE_KEYS = {
+    "configured_tariff_preset",
+    "active_tariff_mode",
+    "active_tariff_period",
+    "configured_power_fee_rule",
+}
+
+_ECONOMICS_SENSOR_KEYS = {
+    desc.key
+    for desc in COORDINATOR_SENSOR_DESCRIPTIONS
+    if desc.key not in _ANALYTICS_SENSOR_KEYS | _COORDINATOR_CONTEXT_FREE_KEYS
 }
 
 
@@ -752,6 +739,10 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
                 attrs["skipped_windows"] = (
                     self.coordinator.skipped_savings_window_count
                 )
+            if key == "total_battery_savings":
+                attrs[
+                    "may_be_negative_when_battery_strategy_underperforms"
+                ] = True
 
             if key in {
                 "total_solar_used_in_house_value",
@@ -781,6 +772,10 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
                 attrs["interpretation"] = (
                     "gross_avoided_import_not_net_savings"
                 )
+
+            if key in {"total_power_fee_cost", "current_month_power_fee_estimate"}:
+                attrs["estimate_monotonic_within_month"] = True
+                attrs["decreases_require_rebuild"] = True
 
         if key in _ANALYTICS_SENSOR_KEYS:
             if self.coordinator.analytics_last_period_end is None:
@@ -818,6 +813,9 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
 
             if key == "total_avoided_grid_import_energy":
                 attrs["interpretation"] = "solar_to_house_plus_battery_to_house"
+            elif key == "estimated_backup_runtime_hours":
+                attrs["basis"] = "instantaneous_house_load"
+                attrs["may_be_spiky_with_low_or_variable_load"] = True
 
         return attrs or None
 

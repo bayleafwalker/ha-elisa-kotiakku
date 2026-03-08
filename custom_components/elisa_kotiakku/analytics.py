@@ -8,6 +8,8 @@ from statistics import median
 from typing import Any, cast
 
 from .api import MeasurementData
+from .util import measurement_duration_hours as _measurement_duration_hours
+from .util import parse_iso8601 as _parse_iso8601
 
 ROLLING_ANALYTICS_DAYS = 30
 LOW_SOC_THRESHOLD_PERCENT = 20.0
@@ -453,7 +455,12 @@ class AnalyticsState:
         self.open_episode.last_period_end = measurement.period_end
 
     def _finalize_open_episode(self) -> None:
-        """Finalize the current episode into a capacity candidate if valid."""
+        """Finalize the current episode into a heuristic capacity candidate.
+
+        The episode energy is derived from battery terminal power, so the
+        resulting candidate includes inverter/round-trip losses and should be
+        treated as a conservative heuristic rather than true stored energy.
+        """
         if self.open_episode is None:
             return
 
@@ -554,24 +561,6 @@ def _float(value: Any) -> float:
     if isinstance(value, int | float):
         return float(value)
     return 0.0
-
-
-def _parse_iso8601(value: str) -> datetime | None:
-    """Parse ISO 8601 timestamp and return None on malformed input."""
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError:
-        return None
-
-
-def _measurement_duration_hours(period_start: str, period_end: str) -> float:
-    """Return measurement window duration in hours."""
-    start = _parse_iso8601(period_start)
-    end = _parse_iso8601(period_end)
-    if start is None or end is None or end <= start:
-        return 5 / 60
-    return (end - start).total_seconds() / 3600
-
 
 def _split_window_by_local_date(
     period_start: str,

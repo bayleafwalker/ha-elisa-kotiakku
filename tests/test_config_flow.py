@@ -782,6 +782,30 @@ class TestOptionsFlow:
             == "invalid_tariff_value"
         )
 
+    async def test_options_allows_negative_retailer_margin_and_export_adjustment(
+        self,
+    ) -> None:
+        """Retailer discounts should remain allowed."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_create_entry = MagicMock(
+            return_value={"type": "create_entry"}
+        )
+
+        result = await options_flow.async_step_init(
+            user_input={
+                **_expected_default_options(),
+                CONF_IMPORT_RETAILER_MARGIN: -0.25,
+                CONF_EXPORT_RETAILER_ADJUSTMENT: -0.5,
+            }
+        )
+
+        assert result["type"] == "create_entry"
+        saved = options_flow.async_create_entry.call_args.kwargs["data"]
+        assert saved[CONF_IMPORT_RETAILER_MARGIN] == -0.25
+        assert saved[CONF_EXPORT_RETAILER_ADJUSTMENT] == -0.5
+
     async def test_options_apply_tariff_preset_on_submit(self) -> None:
         """Selecting a preset should normalize transfer values on save."""
         entry = MagicMock()

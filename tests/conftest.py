@@ -115,9 +115,12 @@ def mock_coordinator(mock_config_entry: MagicMock) -> MagicMock:
     coordinator.get_analytics_value = MagicMock(return_value=0.0)
     coordinator.get_analytics_debug_value = MagicMock(return_value=0)
     coordinator.get_attribution_skipped_window_count = MagicMock(return_value=0)
+    coordinator.get_attribution_skipped_window_counts = MagicMock(return_value={})
     coordinator.get_active_tariff_rates = MagicMock(return_value=None)
     coordinator.get_current_month_power_peak = MagicMock(return_value=0.0)
     coordinator.get_current_month_power_fee_estimate = MagicMock(return_value=0.0)
+    coordinator.get_power_fee_monthly_estimates = MagicMock(return_value={})
+    coordinator.get_power_fee_monthly_peaks = MagicMock(return_value={})
     coordinator.tariff_config = MagicMock()
     coordinator.tariff_config.power_fee_rule = "none"
     coordinator._attribution_skipped_window_counts = {}

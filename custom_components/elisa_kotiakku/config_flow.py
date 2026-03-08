@@ -243,16 +243,10 @@ def _validate_options_data(options: dict[str, Any]) -> dict[str, str]:
     errors: dict[str, str] = {}
 
     non_negative_fields = (
-        CONF_IMPORT_RETAILER_MARGIN,
         CONF_GRID_IMPORT_TRANSFER_FEE,
         CONF_GRID_EXPORT_TRANSFER_FEE,
-        CONF_ELECTRICITY_TAX_FEE,
-        CONF_DAY_IMPORT_RETAILER_MARGIN,
-        CONF_NIGHT_IMPORT_RETAILER_MARGIN,
         CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
         CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE,
-        CONF_POWER_FEE_RATE,
-        CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
     )
     if any(float(options[field]) < 0 for field in non_negative_fields):
         errors["base"] = "invalid_tariff_value"
@@ -470,15 +464,20 @@ class ElisaKotiakkuOptionsFlow(OptionsFlow):
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
         """Manage integration options."""
+        current_options = _default_options(self._config_entry.options)
         if user_input is not None:
-            normalized = _default_options(user_input)
-            errors = _validate_options_data(normalized)
-            if not errors:
-                return self.async_create_entry(title="", data=normalized)
+            try:
+                validated_input = _options_data_schema(current_options)(user_input)
+            except vol.Invalid:
+                errors = {"base": "invalid_tariff_value"}
+            else:
+                normalized = _default_options(validated_input)
+                errors = _validate_options_data(normalized)
+                if not errors:
+                    return self.async_create_entry(title="", data=normalized)
         else:
             errors = {}
 
-        current_options = _default_options(self._config_entry.options)
         return self.async_show_form(
             step_id="init",
             data_schema=_options_data_schema(current_options),

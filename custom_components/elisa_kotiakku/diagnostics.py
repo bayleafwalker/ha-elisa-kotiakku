@@ -45,10 +45,10 @@ async def async_get_config_entry_diagnostics(
             coordinator.skipped_savings_window_count
         ),
         "attribution_skipped_window_counts": (
-            coordinator._attribution_skipped_window_counts
+            coordinator.get_attribution_skipped_window_counts()
         ),
-        "power_fee_monthly_estimates": coordinator._power_fee_monthly_estimates,
-        "power_fee_monthly_peaks": coordinator._power_fee_monthly_peaks,
+        "power_fee_monthly_estimates": coordinator.get_power_fee_monthly_estimates(),
+        "power_fee_monthly_peaks": coordinator.get_power_fee_monthly_peaks(),
         "analytics_last_period_end": coordinator.analytics_last_period_end,
         "analytics_processed_period_count": (
             coordinator.analytics_processed_period_count

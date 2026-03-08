@@ -24,13 +24,14 @@ from .const import (
     CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
     DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
     DEFAULT_SCAN_INTERVAL,
-    DEFAULT_WINDOW_HOURS,
     DOMAIN,
     ECONOMICS_ATTRIBUTION_SKIP_KEYS,
     ECONOMICS_TOTAL_KEYS,
     ENERGY_TOTAL_KEYS,
 )
 from .tariff import ActiveTariffRates, TariffConfig, cents_per_kwh_to_eur
+from .util import measurement_duration_hours as _measurement_duration_hours
+from .util import parse_iso8601 as _parse_iso8601
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -424,6 +425,18 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         """Return the number of windows skipped for one attribution total."""
         return self._attribution_skipped_window_counts.get(key, 0)
 
+    def get_attribution_skipped_window_counts(self) -> dict[str, int]:
+        """Return all attribution skip counters."""
+        return dict(self._attribution_skipped_window_counts)
+
+    def get_power_fee_monthly_estimates(self) -> dict[str, float]:
+        """Return current monthly power-fee estimates."""
+        return dict(self._power_fee_monthly_estimates)
+
+    def get_power_fee_monthly_peaks(self) -> dict[str, float]:
+        """Return current monthly qualifying peaks."""
+        return dict(self._power_fee_monthly_peaks)
+
     @property
     def energy_processed_period_count(self) -> int:
         """Return number of period_end markers already processed for energy."""
@@ -734,6 +747,9 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         monthly_estimates[month_key] = new_estimate
         if monthly_peaks is not None:
             monthly_peaks[month_key] = peak_kw
+        # Keep the cumulative fee sensor monotonic within a live month. If the
+        # estimate drops after recalculation, a rebuild is required to replay
+        # the month from scratch using the final bucket set.
         return max(new_estimate - previous_estimate, 0.0)
 
     def _current_measurement_month_key(self) -> str | None:
@@ -866,30 +882,6 @@ def _load_hour_bucket_store(raw: Any) -> dict[str, dict[str, dict[str, float]]]:
 
     return loaded
 
-
 def _measurement_timestamp(measurement: MeasurementData) -> datetime | None:
     """Return measurement period start timestamp."""
     return _parse_iso8601(measurement.period_start)
-
-
-def _parse_iso8601(value: str) -> datetime | None:
-    """Parse ISO 8601 timestamp and return None on malformed input."""
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError:
-        return None
-
-
-def _measurement_duration_hours(period_start: str, period_end: str) -> float:
-    """Return measurement window duration in hours, fallback to default window."""
-    start = _parse_iso8601(period_start)
-    end = _parse_iso8601(period_end)
-
-    if start is None or end is None:
-        return DEFAULT_WINDOW_HOURS
-
-    delta_hours = (end - start).total_seconds() / 3600
-    if delta_hours <= 0:
-        return DEFAULT_WINDOW_HOURS
-
-    return delta_hours
