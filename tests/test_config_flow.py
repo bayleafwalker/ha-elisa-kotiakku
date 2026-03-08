@@ -52,7 +52,10 @@ from custom_components.elisa_kotiakku.const import (
     MAX_BACKFILL_HOURS,
     POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
     TARIFF_MODE_DAY_NIGHT,
+    TARIFF_MODE_SEASONAL_DAY_NIGHT,
     TARIFF_PRESET_CARUNA_ESPOO_NIGHT_2026_01,
+    TARIFF_PRESET_CARUNA_GENERAL_2026_01,
+    TARIFF_PRESET_CARUNA_NIGHT_SEASONAL_2026_01,
 )
 
 
@@ -834,3 +837,49 @@ class TestOptionsFlow:
         assert saved[CONF_TARIFF_MODE] == TARIFF_MODE_DAY_NIGHT
         assert saved[CONF_DAY_GRID_IMPORT_TRANSFER_FEE] == 5.11
         assert saved[CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE] == 3.12
+
+    async def test_options_apply_non_espoo_general_preset_on_submit(self) -> None:
+        """General Caruna preset should normalize flat transfer values."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_create_entry = MagicMock(
+            return_value={"type": "create_entry"}
+        )
+
+        await options_flow.async_step_init(
+            user_input={
+                **_expected_default_options(),
+                CONF_TARIFF_PRESET: TARIFF_PRESET_CARUNA_GENERAL_2026_01,
+                CONF_GRID_IMPORT_TRANSFER_FEE: 99.0,
+            }
+        )
+
+        saved = options_flow.async_create_entry.call_args.kwargs["data"]
+        assert saved[CONF_TARIFF_MODE] == "flat"
+        assert saved[CONF_GRID_IMPORT_TRANSFER_FEE] == 5.26
+
+    async def test_options_apply_seasonal_preset_on_submit(self) -> None:
+        """Seasonal Caruna preset should normalize the seasonal mode fields."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_create_entry = MagicMock(
+            return_value={"type": "create_entry"}
+        )
+
+        await options_flow.async_step_init(
+            user_input={
+                **_expected_default_options(),
+                CONF_TARIFF_PRESET: TARIFF_PRESET_CARUNA_NIGHT_SEASONAL_2026_01,
+                CONF_TARIFF_MODE: "flat",
+                CONF_GRID_IMPORT_TRANSFER_FEE: 99.0,
+                CONF_DAY_GRID_IMPORT_TRANSFER_FEE: 99.0,
+                CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE: 99.0,
+            }
+        )
+
+        saved = options_flow.async_create_entry.call_args.kwargs["data"]
+        assert saved[CONF_TARIFF_MODE] == TARIFF_MODE_SEASONAL_DAY_NIGHT
+        assert saved[CONF_DAY_GRID_IMPORT_TRANSFER_FEE] == 6.73
+        assert saved[CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE] == 3.23

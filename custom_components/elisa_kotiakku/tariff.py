@@ -40,8 +40,12 @@ from .const import (
     POWER_FEE_RULE_MONTHLY_TOP3_WINTER_WEEKDAY_DAYTIME,
     TARIFF_MODE_DAY_NIGHT,
     TARIFF_MODE_FLAT,
+    TARIFF_MODE_SEASONAL_DAY_NIGHT,
     TARIFF_PRESET_CARUNA_ESPOO_GENERAL_2026_01,
     TARIFF_PRESET_CARUNA_ESPOO_NIGHT_2026_01,
+    TARIFF_PRESET_CARUNA_GENERAL_2026_01,
+    TARIFF_PRESET_CARUNA_NIGHT_2026_01,
+    TARIFF_PRESET_CARUNA_NIGHT_SEASONAL_2026_01,
     TARIFF_PRESET_CUSTOM,
 )
 
@@ -64,6 +68,33 @@ class TariffPreset:
 
 
 _TARIFF_PRESETS: dict[str, TariffPreset] = {
+    TARIFF_PRESET_CARUNA_GENERAL_2026_01: TariffPreset(
+        key=TARIFF_PRESET_CARUNA_GENERAL_2026_01,
+        tariff_mode=TARIFF_MODE_FLAT,
+        grid_import_transfer_fee_cents_per_kwh=5.26,
+        day_grid_import_transfer_fee_cents_per_kwh=5.26,
+        night_grid_import_transfer_fee_cents_per_kwh=5.26,
+        source_name="Caruna Oy Yleissiirto",
+        source_effective_date="2024-09-01",
+    ),
+    TARIFF_PRESET_CARUNA_NIGHT_2026_01: TariffPreset(
+        key=TARIFF_PRESET_CARUNA_NIGHT_2026_01,
+        tariff_mode=TARIFF_MODE_DAY_NIGHT,
+        grid_import_transfer_fee_cents_per_kwh=0.0,
+        day_grid_import_transfer_fee_cents_per_kwh=5.11,
+        night_grid_import_transfer_fee_cents_per_kwh=3.12,
+        source_name="Caruna Oy Yösiirto",
+        source_effective_date="2024-09-01",
+    ),
+    TARIFF_PRESET_CARUNA_NIGHT_SEASONAL_2026_01: TariffPreset(
+        key=TARIFF_PRESET_CARUNA_NIGHT_SEASONAL_2026_01,
+        tariff_mode=TARIFF_MODE_SEASONAL_DAY_NIGHT,
+        grid_import_transfer_fee_cents_per_kwh=0.0,
+        day_grid_import_transfer_fee_cents_per_kwh=6.73,
+        night_grid_import_transfer_fee_cents_per_kwh=3.23,
+        source_name="Caruna Oy Kausisiirto",
+        source_effective_date="2024-09-01",
+    ),
     TARIFF_PRESET_CARUNA_ESPOO_GENERAL_2026_01: TariffPreset(
         key=TARIFF_PRESET_CARUNA_ESPOO_GENERAL_2026_01,
         tariff_mode=TARIFF_MODE_FLAT,
@@ -226,6 +257,15 @@ class TariffConfig:
                 import_margin = self.night_import_retailer_margin_cents_per_kwh
                 import_transfer = self.night_grid_import_transfer_fee_cents_per_kwh
                 tariff_period = "night"
+        elif self.tariff_mode == TARIFF_MODE_SEASONAL_DAY_NIGHT:
+            if _is_seasonal_day_period(timestamp):
+                import_margin = self.day_import_retailer_margin_cents_per_kwh
+                import_transfer = self.day_grid_import_transfer_fee_cents_per_kwh
+                tariff_period = "winter_day"
+            else:
+                import_margin = self.night_import_retailer_margin_cents_per_kwh
+                import_transfer = self.night_grid_import_transfer_fee_cents_per_kwh
+                tariff_period = "other"
 
         import_unit_price = None
         export_unit_price = None
@@ -337,7 +377,10 @@ def normalize_tariff_options(options: Mapping[str, Any] | Any) -> dict[str, Any]
             CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE,
             preset.night_grid_import_transfer_fee_cents_per_kwh,
         )
-    elif preset.tariff_mode == TARIFF_MODE_DAY_NIGHT:
+    elif preset.tariff_mode in (
+        TARIFF_MODE_DAY_NIGHT,
+        TARIFF_MODE_SEASONAL_DAY_NIGHT,
+    ):
         normalized[CONF_DAY_GRID_IMPORT_TRANSFER_FEE] = (
             preset.day_grid_import_transfer_fee_cents_per_kwh
         )
@@ -364,3 +407,12 @@ def tariff_preset_keys() -> tuple[str, ...]:
 def _is_day_period(timestamp: datetime) -> bool:
     """Return True for the default Finnish day tariff window."""
     return _DAY_START_HOUR <= timestamp.hour < _DAY_END_HOUR
+
+
+def _is_seasonal_day_period(timestamp: datetime) -> bool:
+    """Return True for Caruna-style winter daytime seasonal pricing."""
+    return (
+        timestamp.month in _WINTER_MONTHS
+        and timestamp.weekday() < 6
+        and _is_day_period(timestamp)
+    )

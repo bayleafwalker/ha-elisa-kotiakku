@@ -10,7 +10,10 @@ from custom_components.elisa_kotiakku.const import (
     CONF_TARIFF_MODE,
     CONF_TARIFF_PRESET,
     TARIFF_MODE_DAY_NIGHT,
+    TARIFF_MODE_SEASONAL_DAY_NIGHT,
     TARIFF_PRESET_CARUNA_ESPOO_NIGHT_2026_01,
+    TARIFF_PRESET_CARUNA_GENERAL_2026_01,
+    TARIFF_PRESET_CARUNA_NIGHT_SEASONAL_2026_01,
 )
 from custom_components.elisa_kotiakku.tariff import (
     TariffConfig,
@@ -26,6 +29,11 @@ def test_preset_lookup_returns_snapshot_metadata() -> None:
     assert preset is not None
     assert preset.source_name == "Caruna Espoo Oy Yösiirto"
     assert preset.source_effective_date == "2026-01-01"
+
+    non_espoo = get_tariff_preset(TARIFF_PRESET_CARUNA_GENERAL_2026_01)
+    assert non_espoo is not None
+    assert non_espoo.source_name == "Caruna Oy Yleissiirto"
+    assert non_espoo.source_effective_date == "2024-09-01"
 
 
 def test_normalize_tariff_options_applies_preset_values() -> None:
@@ -100,6 +108,53 @@ def test_active_rates_include_electricity_tax() -> None:
     )
 
     assert rates.electricity_tax_cents_per_kwh == 2.79
+
+
+def test_normalize_tariff_options_applies_seasonal_preset_values() -> None:
+    """Seasonal preset normalization should set the new tariff mode."""
+    normalized = normalize_tariff_options(
+        {
+            CONF_TARIFF_PRESET: TARIFF_PRESET_CARUNA_NIGHT_SEASONAL_2026_01,
+            CONF_TARIFF_MODE: "flat",
+            CONF_GRID_IMPORT_TRANSFER_FEE: 99.0,
+            CONF_DAY_GRID_IMPORT_TRANSFER_FEE: 99.0,
+            CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE: 99.0,
+        }
+    )
+
+    assert normalized[CONF_TARIFF_MODE] == TARIFF_MODE_SEASONAL_DAY_NIGHT
+    assert normalized[CONF_GRID_IMPORT_TRANSFER_FEE] == 0.0
+    assert normalized[CONF_DAY_GRID_IMPORT_TRANSFER_FEE] == 6.73
+    assert normalized[CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE] == 3.23
+
+
+def test_seasonal_day_night_split_uses_winter_day_window() -> None:
+    """Seasonal mode should only use the higher rate in winter daytime."""
+    config = TariffConfig(
+        tariff_mode=TARIFF_MODE_SEASONAL_DAY_NIGHT,
+        day_grid_import_transfer_fee_cents_per_kwh=6.73,
+        night_grid_import_transfer_fee_cents_per_kwh=3.23,
+    )
+
+    winter_day = config.active_rates(
+        timestamp=_dt("2026-01-05T08:00:00+02:00"),
+        spot_price_cents_per_kwh=2.0,
+    )
+    summer_day = config.active_rates(
+        timestamp=_dt("2026-06-05T08:00:00+03:00"),
+        spot_price_cents_per_kwh=2.0,
+    )
+    winter_sunday = config.active_rates(
+        timestamp=_dt("2026-01-04T08:00:00+02:00"),
+        spot_price_cents_per_kwh=2.0,
+    )
+
+    assert winter_day.tariff_period == "winter_day"
+    assert winter_day.import_transfer_fee_cents_per_kwh == 6.73
+    assert summer_day.tariff_period == "other"
+    assert summer_day.import_transfer_fee_cents_per_kwh == 3.23
+    assert winter_sunday.tariff_period == "other"
+    assert winter_sunday.import_transfer_fee_cents_per_kwh == 3.23
 
 
 def _dt(value: str):

@@ -72,37 +72,42 @@ For normal Home Assistant usage, only the Home Assistant version requirement app
 
 In **Settings -> Devices & Services -> Elisa Kotiakku -> Configure**:
 
-- `startup_backfill_hours`: automatically import historical windows at startup (`0` disables).
-- `tariff_preset`: optional dated transfer-tariff preset.
-- `tariff_mode`: choose `spot_only`, `flat`, or `day_night`.
-- `import_retailer_margin`: retailer import margin in `c/kWh`.
-- `export_retailer_adjustment`: export adjustment in `c/kWh` applied on top of spot.
-- `grid_import_transfer_fee`: import-side transfer fee in `c/kWh`.
-- `grid_export_transfer_fee`: export-side transfer fee in `c/kWh`.
-- `electricity_tax_fee`: import-side electricity tax in `c/kWh`.
-- `day_*` / `night_*`: day/night import-side margin and transfer fee values when using `day_night`.
-- `power_fee_rule`: estimated monthly peak-demand rule.
-- `power_fee_rate`: monthly demand-fee rate in `EUR/kW/month`.
-- `battery_expected_usable_capacity_kwh`: configured usable capacity baseline for heuristic health, cycle, and backup-runtime estimates.
+- Setup and history:
+  - `startup_backfill_hours`: automatically import historical windows at startup (`0` disables).
+- Tariff presets and pricing mode:
+  - `tariff_preset`: optional dated transfer-tariff preset.
+  - `tariff_mode`: choose `spot_only`, `flat`, `day_night`, or `seasonal_day_night`.
+- Retailer and grid pricing:
+  - `import_retailer_margin`: retailer import margin in `c/kWh`.
+  - `export_retailer_adjustment`: export adjustment in `c/kWh` applied on top of spot.
+  - `grid_import_transfer_fee`: import-side transfer fee in `c/kWh`.
+  - `grid_export_transfer_fee`: export-side transfer fee in `c/kWh`.
+  - `electricity_tax_fee`: import-side electricity tax in `c/kWh`.
+  - `day_*` / `night_*`: used for day/night pricing, or winter-day/other-times pricing when using `seasonal_day_night`.
+- Power fee estimation:
+  - `power_fee_rule`: estimated monthly peak-demand rule.
+  - `power_fee_rate`: monthly demand-fee rate in `EUR/kW/month`.
+- Analytics baseline:
+  - `battery_expected_usable_capacity_kwh`: configured usable capacity baseline for heuristic health, cycle, and backup-runtime estimates.
 
 ### Configuration parameters
 
-| Parameter | Required | Where set | Description |
-|---|---|---|---|
-| `api_key` | Yes | Config flow | API key generated in the Kotiakku app |
-| `startup_backfill_hours` | No | Options flow | Hours of history to import on startup |
-| `tariff_preset` | No | Options flow | Optional dated preset that applies transfer-side defaults |
-| `tariff_mode` | No | Options flow | Pricing mode for import margins and transfer fees |
-| `import_retailer_margin` | No | Options flow | Retailer import margin in `c/kWh` |
-| `export_retailer_adjustment` | No | Options flow | Export price adjustment in `c/kWh` |
-| `grid_import_transfer_fee` | No | Options flow | Flat import transfer fee in `c/kWh` |
-| `grid_export_transfer_fee` | No | Options flow | Export transfer fee in `c/kWh` |
-| `electricity_tax_fee` | No | Options flow | Import-side electricity tax in `c/kWh` |
-| `day_import_retailer_margin` / `night_import_retailer_margin` | No | Options flow | Day/night import margin in `c/kWh` |
-| `day_grid_import_transfer_fee` / `night_grid_import_transfer_fee` | No | Options flow | Day/night import transfer fee in `c/kWh` |
-| `power_fee_rule` | No | Options flow | Estimated monthly power-fee formula |
-| `power_fee_rate` | No | Options flow | Estimated power-fee rate in `EUR/kW/month` |
-| `battery_expected_usable_capacity_kwh` | No | Options flow | Configured usable battery capacity baseline for health analytics |
+| Category | Parameter | Required | Where set | Sample value | Description |
+|---|---|---|---|---|---|
+| Setup | `api_key` | Yes | Config flow | `ek_live_abc123...` | API key generated in the Kotiakku app |
+| History | `startup_backfill_hours` | No | Options flow | `24` | Hours of history to import on startup |
+| Tariff preset | `tariff_preset` | No | Options flow | `caruna_night_2026_01` | Optional dated preset that applies transfer-side defaults |
+| Tariff mode | `tariff_mode` | No | Options flow | `day_night` | Pricing mode for import margins and transfer fees |
+| Retailer pricing | `import_retailer_margin` | No | Options flow | `0.45` | Retailer import margin in `c/kWh` |
+| Retailer pricing | `export_retailer_adjustment` | No | Options flow | `-0.30` | Export price adjustment in `c/kWh` |
+| Grid pricing | `grid_import_transfer_fee` | No | Options flow | `5.26` | Flat import transfer fee in `c/kWh` |
+| Grid pricing | `grid_export_transfer_fee` | No | Options flow | `0.00` | Export transfer fee in `c/kWh` |
+| Taxes | `electricity_tax_fee` | No | Options flow | `2.79` | Import-side electricity tax in `c/kWh` |
+| Time-of-use pricing | `day_import_retailer_margin` / `night_import_retailer_margin` | No | Options flow | `0.60` / `0.25` | Day/night import margin in `c/kWh`, or winter-day/other-times margin in seasonal mode |
+| Time-of-use pricing | `day_grid_import_transfer_fee` / `night_grid_import_transfer_fee` | No | Options flow | `5.11` / `3.12` | Day/night import transfer fee in `c/kWh`, or winter-day/other-times transfer fee in seasonal mode |
+| Power fee | `power_fee_rule` | No | Options flow | `monthly_top3_all_hours` | Estimated monthly power-fee formula |
+| Power fee | `power_fee_rate` | No | Options flow | `8.50` | Estimated power-fee rate in `EUR/kW/month` |
+| Analytics | `battery_expected_usable_capacity_kwh` | No | Options flow | `10.0` | Configured usable battery capacity baseline for health analytics |
 
 ## Supported devices
 
@@ -152,6 +157,11 @@ Default day/night split:
 
 - Day: `07:00-22:00`
 - Night: `22:00-07:00`
+
+Seasonal day/night split:
+
+- Winter daytime: `November 1-March 31`, Monday-Saturday, `07:00-22:00`
+- Other times: all remaining hours
 
 Current power-fee rules:
 
@@ -203,6 +213,9 @@ Capacity estimation method:
 Starter tariff presets bundled in the integration:
 
 - `custom`
+- `caruna_general_2026_01`
+- `caruna_night_2026_01`
+- `caruna_night_seasonal_2026_01`
 - `caruna_espoo_general_2026_01`
 - `caruna_espoo_night_2026_01`
 
@@ -212,6 +225,7 @@ Preset behavior:
 - Presets currently apply tariff mode and transfer-side prices when options are saved.
 - Retailer margins, export adjustments, and power-fee settings remain user-controlled.
 - Switch back to `custom` if you want full manual control of transfer prices.
+- The non-Espoo `caruna_*_2026_01` presets are Jan 2026 packaged snapshots backed by the official Caruna Oy residential tariff page effective from `2024-09-01`.
 
 ## Supported functionality
 
@@ -220,6 +234,8 @@ Preset behavior:
 - Reauthentication and reconfiguration via UI
 
 ## Sensor entities
+
+### Live measurement sensors
 
 | Entity | Unit | Description |
 |---|---|---|
@@ -237,16 +253,27 @@ Preset behavior:
 | Battery to house | kW | Battery to load flow |
 | Battery to grid | kW | Battery export |
 | Spot price | c/kWh | Electricity spot price |
+
+### Cumulative energy sensors
+
+| Entity | Unit | Description |
+|---|---|---|
 | Grid import energy | kWh | Cumulative import (Energy Dashboard) |
 | Grid export energy | kWh | Cumulative export (Energy Dashboard) |
 | Solar production energy | kWh | Cumulative solar production |
 | House consumption energy | kWh | Cumulative house consumption |
 | Battery charge energy | kWh | Cumulative battery charging |
 | Battery discharge energy | kWh | Cumulative battery discharging |
+
+### Tariff and economics sensors
+
+| Entity | Unit | Description |
+|---|---|---|
 | Active import unit price | c/kWh | Spot price plus currently active retailer import margin |
 | Active export unit price | c/kWh | Spot price plus export adjustment |
 | Total purchase cost | EUR | Cumulative grid energy purchase cost |
 | Total import transfer cost | EUR | Cumulative import-side transfer cost |
+| Total electricity tax cost | EUR | Cumulative import-side electricity tax cost |
 | Total export revenue | EUR | Cumulative export compensation |
 | Total export transfer cost | EUR | Cumulative export-side transfer cost |
 | Total power fee cost | EUR | Cumulative estimated demand-fee cost |
@@ -258,6 +285,11 @@ Preset behavior:
 | Total avoided grid import energy | kWh | Cumulative solar-to-house plus battery-to-house energy |
 | Current month power peak | kW | Qualifying monthly peak demand under the chosen rule |
 | Current month power fee estimate | EUR | Current month estimated power-fee amount |
+
+### Historical analytics sensors
+
+| Entity | Unit | Description |
+|---|---|---|
 | Estimated usable battery capacity | kWh | Median heuristic estimate from recent valid charge/discharge episodes |
 | Estimated battery health | % | Estimated usable capacity versus configured expected capacity |
 | Battery equivalent full cycles | cycles | Lifetime battery throughput divided by configured expected usable capacity |
@@ -279,6 +311,7 @@ Disabled by default diagnostic/debug sensors:
 - `Configured power fee rule`
 - `Active import retailer margin`
 - `Active import transfer fee`
+- `Active electricity tax fee`
 - `Active export retailer adjustment`
 - `Active export transfer fee`
 - `Usable capacity candidate count`
@@ -288,7 +321,7 @@ Disabled by default diagnostic/debug sensors:
 - `Skipped savings windows`
 - `Economics processed periods`
 
-Most pricing sensors also include helpful attributes such as `last_period_end`, `tariff_mode`, `tariff_period`, and `power_fee_rule`. The new attribution value sensors additionally expose `value_basis`, `includes_power_fee`, and `skipped_directional_windows`.
+Most pricing sensors also include helpful attributes such as `last_period_end`, `tariff_mode`, `tariff_period`, and `power_fee_rule`. The new attribution value sensors additionally expose `value_basis`, `includes_power_fee`, `includes_electricity_tax`, and `skipped_directional_windows`.
 
 To enable disabled-by-default debug sensors:
 
