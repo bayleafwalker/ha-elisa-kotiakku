@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.exceptions import ConfigEntryAuthFailed, ServiceValidationError
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -16,6 +17,8 @@ from custom_components.elisa_kotiakku import (
     _async_register_rebuild_economics_service,
     _async_update_listener,
     _ensure_timezone,
+    _has_loaded_entries,
+    _loaded_entries,
     _resolve_backfill_range,
     async_setup,
     async_setup_entry,
@@ -205,6 +208,108 @@ async def test_rebuild_economics_service_calls_coordinator(hass) -> None:
         )
 
     coordinator.async_rebuild_economics.assert_awaited_once()
+
+
+async def test_register_services_is_idempotent(hass) -> None:
+    """Re-registering services should keep a single handler per service."""
+    _async_register_backfill_service(hass)
+    _async_register_backfill_service(hass)
+    _async_register_rebuild_economics_service(hass)
+    _async_register_rebuild_economics_service(hass)
+
+    assert hass.services.has_service(DOMAIN, SERVICE_BACKFILL_ENERGY)
+    assert hass.services.has_service(DOMAIN, SERVICE_REBUILD_ECONOMICS)
+
+
+async def test_rebuild_service_raises_when_no_entries(hass) -> None:
+    """Rebuild service should fail clearly when there are no loaded entries."""
+    with patch(
+        "custom_components.elisa_kotiakku._loaded_entries",
+        return_value=[],
+    ):
+        _async_register_rebuild_economics_service(hass)
+        with pytest.raises(ServiceValidationError, match="No loaded"):
+            await hass.services.async_call(
+                DOMAIN,
+                SERVICE_REBUILD_ECONOMICS,
+                {},
+                blocking=True,
+            )
+
+
+async def test_rebuild_service_raises_for_unknown_entry_id(hass) -> None:
+    """Rebuild service should reject entry IDs that are not loaded."""
+    loaded_entry = MagicMock()
+    loaded_entry.entry_id = "real-entry-id"
+    loaded_entry.runtime_data = MagicMock()
+
+    with patch(
+        "custom_components.elisa_kotiakku._loaded_entries",
+        return_value=[loaded_entry],
+    ):
+        _async_register_rebuild_economics_service(hass)
+        with pytest.raises(ServiceValidationError, match="not loaded"):
+            await hass.services.async_call(
+                DOMAIN,
+                SERVICE_REBUILD_ECONOMICS,
+                {ATTR_ENTRY_ID: "nonexistent-entry-id", ATTR_HOURS: 1},
+                blocking=True,
+            )
+
+
+@pytest.mark.parametrize(
+    ("side_effect", "expected_message"),
+    [
+        (ConfigEntryAuthFailed("Bad key"), "Bad key"),
+        (UpdateFailed("Connection lost"), "Connection lost"),
+    ],
+)
+async def test_rebuild_service_surfaces_coordinator_errors(
+    hass,
+    side_effect,
+    expected_message,
+) -> None:
+    """Rebuild service should wrap coordinator failures as validation errors."""
+    coordinator = MagicMock()
+    coordinator.async_rebuild_economics = AsyncMock(side_effect=side_effect)
+    loaded_entry = MagicMock()
+    loaded_entry.entry_id = "entry-1"
+    loaded_entry.runtime_data = coordinator
+
+    with patch(
+        "custom_components.elisa_kotiakku._loaded_entries",
+        return_value=[loaded_entry],
+    ):
+        _async_register_rebuild_economics_service(hass)
+        with pytest.raises(ServiceValidationError, match=expected_message):
+            await hass.services.async_call(
+                DOMAIN,
+                SERVICE_REBUILD_ECONOMICS,
+                {ATTR_HOURS: 1},
+                blocking=True,
+            )
+
+
+async def test_rebuild_service_raises_when_no_new_windows(hass) -> None:
+    """Rebuild service should raise when the requested history yields no windows."""
+    coordinator = MagicMock()
+    coordinator.async_rebuild_economics = AsyncMock(return_value=0)
+    loaded_entry = MagicMock()
+    loaded_entry.entry_id = "entry-1"
+    loaded_entry.runtime_data = coordinator
+
+    with patch(
+        "custom_components.elisa_kotiakku._loaded_entries",
+        return_value=[loaded_entry],
+    ):
+        _async_register_rebuild_economics_service(hass)
+        with pytest.raises(ServiceValidationError, match="already be imported"):
+            await hass.services.async_call(
+                DOMAIN,
+                SERVICE_REBUILD_ECONOMICS,
+                {ATTR_HOURS: 1},
+                blocking=True,
+            )
 
 
 async def test_backfill_service_raises_when_no_entries(hass) -> None:
@@ -457,3 +562,37 @@ async def test_async_update_listener_triggers_reload(hass) -> None:
         await _async_update_listener(hass, entry)
 
     mock_reload.assert_awaited_once_with("test-entry-id")
+
+
+def test_loaded_entries_filters_by_state_and_runtime_data() -> None:
+    """Only loaded entries with coordinator runtime data should be returned."""
+    hass = MagicMock()
+    good_entry = MagicMock()
+    good_entry.state = ConfigEntryState.LOADED
+    good_entry.runtime_data = MagicMock()
+    pending_entry = MagicMock()
+    pending_entry.state = ConfigEntryState.SETUP_IN_PROGRESS
+    pending_entry.runtime_data = MagicMock()
+    no_runtime_entry = MagicMock()
+    no_runtime_entry.state = ConfigEntryState.LOADED
+    no_runtime_entry.runtime_data = None
+    hass.config_entries.async_entries.return_value = [
+        good_entry,
+        pending_entry,
+        no_runtime_entry,
+    ]
+
+    assert _loaded_entries(hass) == [good_entry]
+
+
+def test_has_loaded_entries_reflects_loaded_entry_presence() -> None:
+    """Loaded-entry helper should map empty and non-empty entry lists to bools."""
+    hass = MagicMock()
+
+    with patch("custom_components.elisa_kotiakku._loaded_entries", return_value=[]):
+        assert _has_loaded_entries(hass) is False
+    with patch(
+        "custom_components.elisa_kotiakku._loaded_entries",
+        return_value=[MagicMock()],
+    ):
+        assert _has_loaded_entries(hass) is True

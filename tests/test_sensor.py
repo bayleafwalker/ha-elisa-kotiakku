@@ -15,6 +15,7 @@ from custom_components.elisa_kotiakku.sensor import (
     ElisaKotiakkuCoordinatorSensor,
     ElisaKotiakkuEnergySensor,
     ElisaKotiakkuSensor,
+    _active_rate_value,
     async_setup_entry,
 )
 from custom_components.elisa_kotiakku.tariff import ActiveTariffRates
@@ -201,6 +202,13 @@ class TestElisaKotiakkuSensor:
         assert attrs["period_start"] == "2025-12-17T00:00:00+02:00"
         assert attrs["period_end"] == "2025-12-17T00:05:00+02:00"
 
+    def test_extra_state_attributes_none_when_no_data(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        mock_coordinator.data = None
+        sensor = self._make_sensor(mock_coordinator, "solar_power")
+        assert sensor.extra_state_attributes is None
+
     def test_unique_id(self, mock_coordinator: MagicMock) -> None:
         sensor = self._make_sensor(mock_coordinator, "grid_power")
         assert sensor.unique_id == "test_entry_id_grid_power"
@@ -230,6 +238,13 @@ class TestElisaKotiakkuEnergySensor:
         assert sensor.extra_state_attributes == {
             "last_period_end": "2025-12-17T00:05:00+02:00"
         }
+
+    def test_extra_state_attributes_none_without_period_end(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        mock_coordinator.energy_last_period_end = None
+        sensor = self._make_sensor(mock_coordinator)
+        assert sensor.extra_state_attributes is None
 
 
 class TestElisaKotiakkuCoordinatorSensor:
@@ -489,6 +504,69 @@ class TestElisaKotiakkuCoordinatorSensor:
             "basis": "instantaneous_house_load",
             "may_be_spiky_with_low_or_variable_load": True,
         }
+
+    def test_economics_sensor_attributes_none_without_period_end(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        mock_coordinator.economics_last_period_end = None
+        sensor = self._make_sensor(mock_coordinator, "total_purchase_cost")
+        assert sensor.extra_state_attributes is None
+
+    def test_analytics_sensor_attributes_none_without_period_end(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        mock_coordinator.analytics_last_period_end = None
+        sensor = self._make_sensor(mock_coordinator, "estimated_battery_health")
+        assert sensor.extra_state_attributes is None
+
+    def test_estimated_capacity_attributes_include_candidate_count(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        mock_coordinator.analytics_last_period_end = "2025-12-18T00:05:00+02:00"
+        mock_coordinator.analytics_state.usable_capacity_candidates_kwh = [9.8, 10.0]
+        sensor = self._make_sensor(
+            mock_coordinator, "estimated_usable_battery_capacity"
+        )
+        assert sensor.extra_state_attributes == {
+            "last_period_end": "2025-12-18T00:05:00+02:00",
+            "usable_capacity_candidate_count": 2,
+        }
+
+    def test_rolling_sensor_attributes_include_window_context(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        mock_coordinator.analytics_last_period_end = "2025-12-18T00:05:00+02:00"
+        mock_coordinator.analytics_state.rolling_bucket_count = MagicMock(
+            return_value=7
+        )
+        sensor = self._make_sensor(mock_coordinator, "self_sufficiency_ratio_30d")
+        assert sensor.extra_state_attributes == {
+            "last_period_end": "2025-12-18T00:05:00+02:00",
+            "rolling_window_days": 30,
+            "rolling_bucket_count": 7,
+        }
+
+    def test_avoided_grid_import_energy_attributes_explain_interpretation(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        mock_coordinator.analytics_last_period_end = "2025-12-18T00:05:00+02:00"
+        sensor = self._make_sensor(mock_coordinator, "total_avoided_grid_import_energy")
+        assert sensor.extra_state_attributes == {
+            "last_period_end": "2025-12-18T00:05:00+02:00",
+            "interpretation": "solar_to_house_plus_battery_to_house",
+        }
+
+
+def test_active_rate_value_handles_missing_and_unsupported_values() -> None:
+    """Active-rate helper should ignore absent rates and unsupported attribute types."""
+    coordinator = MagicMock()
+    coordinator.get_active_tariff_rates.return_value = None
+    assert _active_rate_value(coordinator, "tariff_mode") is None
+
+    coordinator.get_active_tariff_rates.return_value = MagicMock(
+        tariff_mode=["not", "supported"]
+    )
+    assert _active_rate_value(coordinator, "tariff_mode") is None
 
 
 class TestQualityScaleCompliance:

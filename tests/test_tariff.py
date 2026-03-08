@@ -19,6 +19,7 @@ from custom_components.elisa_kotiakku.tariff import (
     TariffConfig,
     get_tariff_preset,
     normalize_tariff_options,
+    tariff_preset_keys,
 )
 
 
@@ -155,6 +156,59 @@ def test_seasonal_day_night_split_uses_winter_day_window() -> None:
     assert summer_day.import_transfer_fee_cents_per_kwh == 3.23
     assert winter_sunday.tariff_period == "other"
     assert winter_sunday.import_transfer_fee_cents_per_kwh == 3.23
+
+
+def test_monthly_power_fee_returns_zero_without_qualifying_hours() -> None:
+    """No qualifying hours or no configured rule should produce zero fee."""
+    config = TariffConfig()
+    assert config.calculate_monthly_power_fee(hourly_average_demands_kw={}) == (
+        0.0,
+        0.0,
+    )
+
+    config = TariffConfig(
+        power_fee_rule="unsupported_rule",
+        power_fee_rate_eur_per_kw_month=5.0,
+    )
+    assert config.calculate_monthly_power_fee(
+        hourly_average_demands_kw={"2026-06-06T08:00:00+03:00": 8.0}
+    ) == (0.0, 0.0)
+
+
+def test_monthly_power_fee_skips_non_winter_or_weekend_hours() -> None:
+    """Winter weekday daytime rule should reject non-qualifying timestamps."""
+    config = TariffConfig(
+        power_fee_rule="monthly_top3_winter_weekday_daytime",
+        power_fee_rate_eur_per_kw_month=5.0,
+    )
+
+    assert config.calculate_monthly_power_fee(
+        hourly_average_demands_kw={"2026-06-06T08:00:00+03:00": 8.0}
+    ) == (0.0, 0.0)
+    assert config.calculate_monthly_power_fee(
+        hourly_average_demands_kw={"2026-01-04T08:00:00+02:00": 8.0}
+    ) == (0.0, 0.0)
+
+
+def test_tariff_preset_keys_start_with_custom() -> None:
+    """Preset key list should keep the custom option first."""
+    keys = tariff_preset_keys()
+    assert keys[0] == "custom"
+    assert TARIFF_PRESET_CARUNA_GENERAL_2026_01 in keys
+
+
+def test_normalize_tariff_options_keeps_unknown_preset_unchanged() -> None:
+    """Unknown preset keys should not override the provided tariff fields."""
+    normalized = normalize_tariff_options(
+        {
+            CONF_TARIFF_PRESET: "unknown_preset",
+            CONF_GRID_IMPORT_TRANSFER_FEE: 7.5,
+            CONF_TARIFF_MODE: "flat",
+        }
+    )
+
+    assert normalized[CONF_TARIFF_PRESET] == "unknown_preset"
+    assert normalized[CONF_GRID_IMPORT_TRANSFER_FEE] == 7.5
 
 
 def _dt(value: str):

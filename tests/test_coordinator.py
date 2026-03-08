@@ -8,7 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
+from custom_components.elisa_kotiakku.analytics import DailyAnalyticsBucket
 from custom_components.elisa_kotiakku.api import (
     ElisaKotiakkuApiError,
     ElisaKotiakkuAuthError,
@@ -36,7 +38,11 @@ from custom_components.elisa_kotiakku.const import (
 )
 from custom_components.elisa_kotiakku.coordinator import (
     ElisaKotiakkuCoordinator,
+    _load_float_map,
+    _load_hour_bucket_store,
+    _load_int_map,
     _measurement_duration_hours,
+    _measurement_timestamp,
     _parse_iso8601,
 )
 
@@ -442,6 +448,31 @@ class TestBackfillAndPersistence:
         assert coordinator.energy_last_period_end == "2025-12-17T01:00:00+02:00"
         assert coordinator.energy_processed_period_count == 1
 
+    async def test_load_state_ignores_non_mapping_payloads(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """State loaders should ignore malformed persisted data."""
+        coordinator = ElisaKotiakkuCoordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator._energy_store = MagicMock()
+        coordinator._economics_store = MagicMock()
+        coordinator._analytics_store = MagicMock()
+        coordinator._energy_store.async_load = AsyncMock(return_value="bad")
+        coordinator._economics_store.async_load = AsyncMock(return_value="bad")
+        coordinator._analytics_store.async_load = AsyncMock(return_value="bad")
+
+        await coordinator.async_load_energy_state()
+        await coordinator.async_load_economics_state()
+        await coordinator.async_load_analytics_state()
+
+        assert coordinator.energy_processed_period_count == 0
+        assert coordinator.economics_processed_period_count == 0
+        assert coordinator.analytics_processed_period_count == 0
+
     async def test_load_economics_state_restores_matching_signature(
         self,
         mock_hass: MagicMock,
@@ -586,6 +617,44 @@ class TestBackfillAndPersistence:
             rel=0,
             abs=1e-6,
         )
+
+    async def test_rebuild_economics_returns_zero_when_history_is_empty(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Rebuild should no-op cleanly when the API returns no windows."""
+        mock_api_client.async_get_range.return_value = []
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+
+        assert await coordinator.async_rebuild_economics("a", "b") == 0
+
+    @pytest.mark.parametrize(
+        ("side_effect", "expected_exception"),
+        [
+            (ElisaKotiakkuAuthError("bad key"), ConfigEntryAuthFailed),
+            (ElisaKotiakkuApiError("broken"), UpdateFailed),
+        ],
+    )
+    async def test_rebuild_economics_propagates_history_errors(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+        side_effect: Exception,
+        expected_exception: type[Exception],
+    ) -> None:
+        """History rebuild should wrap auth and API failures consistently."""
+        mock_api_client.async_get_range.side_effect = side_effect
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+
+        with pytest.raises(expected_exception):
+            await coordinator.async_rebuild_economics("a", "b")
 
 
 class TestEconomicsMath:
@@ -1107,6 +1176,192 @@ class TestEnergyHelpers:
 
     def test_parse_iso8601_returns_none_for_invalid_string(self) -> None:
         assert _parse_iso8601("not-a-date") is None
+
+    def test_helper_getters_handle_missing_or_invalid_live_measurement(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Getter methods should handle missing or invalid live measurements."""
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator.data = None
+
+        assert coordinator.get_active_tariff_rates() is None
+        assert coordinator.get_current_month_power_peak() is None
+        assert coordinator.get_current_month_power_fee_estimate() is None
+        assert coordinator.get_economics_debug_value("unknown") is None
+        assert coordinator.get_analytics_debug_value("unknown") is None
+        assert coordinator.get_analytics_value("unknown") is None
+        assert coordinator.get_attribution_skipped_window_counts() == {
+            "solar_used_in_house_value": 0,
+            "solar_export_net_value": 0,
+            "battery_house_supply_value": 0,
+        }
+        assert coordinator.get_power_fee_monthly_estimates() == {}
+        assert coordinator.get_power_fee_monthly_peaks() == {}
+
+        coordinator.data = replace(SAMPLE_MEASUREMENT, period_start="not-a-date")
+        assert coordinator.get_active_tariff_rates() is None
+        assert coordinator.get_current_month_power_peak() is None
+        assert coordinator.get_current_month_power_fee_estimate() is None
+
+    def test_get_analytics_value_routes_supported_metrics(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Coordinator analytics getter should route supported metric keys."""
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator.expected_usable_capacity_kwh = 10.0
+        coordinator.data = replace(
+            SAMPLE_MEASUREMENT,
+            house_power_kw=-2.0,
+            state_of_charge_percent=50.0,
+        )
+        bucket = coordinator.analytics_state.daily_buckets.setdefault(
+            "2025-12-17", DailyAnalyticsBucket()
+        )
+        bucket.house_consumption_kwh = 10.0
+        bucket.grid_to_house_kwh = 3.0
+        bucket.solar_production_kwh = 8.0
+        bucket.solar_to_house_kwh = 2.0
+        bucket.solar_to_battery_kwh = 2.0
+        bucket.battery_to_house_kwh = 1.0
+        bucket.battery_charge_kwh = 4.0
+        bucket.battery_discharge_kwh = 2.0
+        bucket.battery_temperature_weighted_sum = 15.0
+        bucket.battery_temperature_hours = 0.5
+        bucket.high_temperature_hours = 0.25
+        bucket.low_soc_hours = 0.5
+        bucket.high_soc_hours = 0.75
+        coordinator.analytics_state.usable_capacity_candidates_kwh = [8.0, 10.0]
+        coordinator.analytics_state.last_period_end = "2025-12-17T00:05:00+02:00"
+
+        assert coordinator.get_analytics_value("battery_equivalent_full_cycles") == 0.3
+        assert (
+            coordinator.get_analytics_value("battery_temperature_average_30d")
+            == 30.0
+        )
+        assert (
+            coordinator.get_analytics_value("battery_high_temperature_hours_30d")
+            == 0.25
+        )
+        assert coordinator.get_analytics_value("battery_low_soc_hours_30d") == 0.5
+        assert coordinator.get_analytics_value("battery_high_soc_hours_30d") == 0.75
+        assert coordinator.get_analytics_value("self_sufficiency_ratio_30d") == 70.0
+        assert (
+            coordinator.get_analytics_value("solar_self_consumption_ratio_30d")
+            == 50.0
+        )
+        assert coordinator.get_analytics_value("battery_house_supply_ratio_30d") == 10.0
+        assert (
+            coordinator.get_analytics_value("battery_charge_from_solar_ratio_30d")
+            == 50.0
+        )
+        assert coordinator.get_analytics_value("estimated_backup_runtime_hours") == 2.25
+
+    def test_update_last_period_end_and_live_measurement_fallbacks(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Fallback timestamp comparisons should still keep the newest string value."""
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator._update_last_period_end("economics", "invalid-a")
+        coordinator._update_last_period_end("economics", "invalid-b")
+        coordinator._maybe_update_live_measurement(
+            replace(SAMPLE_MEASUREMENT, period_end="invalid-a")
+        )
+        coordinator._maybe_update_live_measurement(
+            replace(SAMPLE_MEASUREMENT, period_end="invalid-b")
+        )
+
+        assert coordinator.economics_last_period_end == "invalid-b"
+        assert coordinator.data is not None
+        assert coordinator.data.period_end == "invalid-b"
+
+    async def test_save_methods_persist_expected_payloads(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """State save helpers should serialize energy, economics, and analytics."""
+        coordinator = ElisaKotiakkuCoordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator._energy_store = MagicMock()
+        coordinator._economics_store = MagicMock()
+        coordinator._analytics_store = MagicMock()
+        coordinator._energy_store.async_save = AsyncMock()
+        coordinator._economics_store.async_save = AsyncMock()
+        coordinator._analytics_store.async_save = AsyncMock()
+        coordinator.energy_totals["grid_import_energy"] = 1.5
+        coordinator.energy_last_period_end = "2025-12-17T00:05:00+02:00"
+        coordinator._processed_energy_period_ends.add("2025-12-17T00:05:00+02:00")
+        coordinator.economics_totals["purchase_cost"] = 2.5
+        coordinator.economics_last_period_end = "2025-12-17T00:05:00+02:00"
+        coordinator.analytics_state.mark_processed("2025-12-17T00:05:00+02:00")
+
+        await coordinator._async_save_energy_state()
+        await coordinator._async_save_economics_state()
+        await coordinator._async_save_analytics_state()
+
+        coordinator._energy_store.async_save.assert_awaited_once()
+        coordinator._economics_store.async_save.assert_awaited_once()
+        coordinator._analytics_store.async_save.assert_awaited_once()
+
+
+def test_load_map_helpers_filter_invalid_values() -> None:
+    """Persistence helper loaders should ignore malformed nested values."""
+    assert _load_float_map("bad") == {}
+    assert _load_float_map({"ok": 1, "skip": "bad"}) == {"ok": 1.0}
+    assert _load_int_map(
+        {"solar_used_in_house_value": 2, "skip": 9},
+        allowed_keys=(
+            "solar_used_in_house_value",
+            "solar_export_net_value",
+        ),
+    ) == {
+        "solar_used_in_house_value": 2,
+        "solar_export_net_value": 0,
+    }
+    assert _load_hour_bucket_store("bad") == {}
+    assert _load_hour_bucket_store(
+        {
+            "2025-12": {
+                "2025-12-17T00:00:00+02:00": {
+                    "energy_kwh": 1.5,
+                    "duration_hours": 0.25,
+                },
+                "bad-hour": {"energy_kwh": "bad", "duration_hours": 0.25},
+            },
+            123: {},
+        }
+    ) == {
+        "2025-12": {
+            "2025-12-17T00:00:00+02:00": {
+                "energy_kwh": 1.5,
+                "duration_hours": 0.25,
+            }
+        }
+    }
+
+
+def test_measurement_timestamp_returns_none_for_invalid_period_start() -> None:
+    """Invalid measurement timestamps should not parse."""
+    assert (
+        _measurement_timestamp(replace(SAMPLE_MEASUREMENT, period_start="bad")) is None
+    )
 
 
 class TestMeasurementDurationHours:
