@@ -13,6 +13,7 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.elisa_kotiakku import (
     _async_register_backfill_service,
+    _async_register_rebuild_economics_service,
     _async_update_listener,
     _ensure_timezone,
     _resolve_backfill_range,
@@ -29,6 +30,7 @@ from custom_components.elisa_kotiakku.const import (
     CONF_STARTUP_BACKFILL_HOURS,
     DOMAIN,
     SERVICE_BACKFILL_ENERGY,
+    SERVICE_REBUILD_ECONOMICS,
 )
 
 MockConfigEntry = pytest.importorskip(
@@ -50,6 +52,8 @@ async def test_async_setup_entry_sets_runtime_data_and_forwards_platforms(
 
     coordinator = MagicMock()
     coordinator.async_load_energy_state = AsyncMock()
+    coordinator.async_load_economics_state = AsyncMock()
+    coordinator.async_load_analytics_state = AsyncMock()
     coordinator.async_config_entry_first_refresh = AsyncMock()
     coordinator.async_backfill_energy = AsyncMock(return_value=0)
 
@@ -82,17 +86,20 @@ async def test_async_setup_entry_sets_runtime_data_and_forwards_platforms(
         entry,
     )
     coordinator.async_load_energy_state.assert_awaited_once()
+    coordinator.async_load_economics_state.assert_awaited_once()
+    coordinator.async_load_analytics_state.assert_awaited_once()
     coordinator.async_config_entry_first_refresh.assert_awaited_once()
     coordinator.async_backfill_energy.assert_not_awaited()
     assert entry.runtime_data is coordinator
     mock_forward_setups.assert_awaited_once_with(entry, [Platform.SENSOR])
 
 
-async def test_async_setup_registers_backfill_service(hass) -> None:
-    """async_setup (integration-level) must register the backfill service."""
+async def test_async_setup_registers_services(hass) -> None:
+    """async_setup must register both maintenance services."""
     result = await async_setup(hass, {})
     assert result is True
     assert hass.services.has_service(DOMAIN, SERVICE_BACKFILL_ENERGY)
+    assert hass.services.has_service(DOMAIN, SERVICE_REBUILD_ECONOMICS)
 
 
 async def test_async_setup_entry_runs_startup_backfill_when_configured(hass) -> None:
@@ -106,6 +113,8 @@ async def test_async_setup_entry_runs_startup_backfill_when_configured(hass) -> 
 
     coordinator = MagicMock()
     coordinator.async_load_energy_state = AsyncMock()
+    coordinator.async_load_economics_state = AsyncMock()
+    coordinator.async_load_analytics_state = AsyncMock()
     coordinator.async_config_entry_first_refresh = AsyncMock()
     coordinator.async_backfill_energy = AsyncMock(return_value=3)
 
@@ -173,6 +182,29 @@ async def test_backfill_service_calls_coordinator(hass) -> None:
         )
 
     coordinator.async_backfill_energy.assert_awaited_once()
+
+
+async def test_rebuild_economics_service_calls_coordinator(hass) -> None:
+    """Economics rebuild service should call async_rebuild_economics."""
+    coordinator = MagicMock()
+    coordinator.async_rebuild_economics = AsyncMock(return_value=2)
+    loaded_entry = MagicMock()
+    loaded_entry.entry_id = "entry-id-1"
+    loaded_entry.runtime_data = coordinator
+
+    with patch(
+        "custom_components.elisa_kotiakku._loaded_entries",
+        return_value=[loaded_entry],
+    ):
+        _async_register_rebuild_economics_service(hass)
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_REBUILD_ECONOMICS,
+            {ATTR_HOURS: 2},
+            blocking=True,
+        )
+
+    coordinator.async_rebuild_economics.assert_awaited_once()
 
 
 async def test_backfill_service_raises_when_no_entries(hass) -> None:
@@ -364,6 +396,8 @@ async def test_startup_backfill_fails_gracefully_on_error(hass) -> None:
 
     coordinator = MagicMock()
     coordinator.async_load_energy_state = AsyncMock()
+    coordinator.async_load_economics_state = AsyncMock()
+    coordinator.async_load_analytics_state = AsyncMock()
     coordinator.async_config_entry_first_refresh = AsyncMock()
     coordinator.async_backfill_energy = AsyncMock(
         side_effect=UpdateFailed("Timeout")

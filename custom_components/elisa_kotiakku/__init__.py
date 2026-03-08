@@ -29,6 +29,7 @@ from .const import (
     DOMAIN,
     MAX_BACKFILL_HOURS,
     SERVICE_BACKFILL_ENERGY,
+    SERVICE_REBUILD_ECONOMICS,
 )
 from .coordinator import ElisaKotiakkuCoordinator
 
@@ -54,6 +55,7 @@ type ElisaKotiakkuConfigEntry = ConfigEntry[ElisaKotiakkuCoordinator]
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up Elisa Kotiakku integration."""
     _async_register_backfill_service(hass)
+    _async_register_rebuild_economics_service(hass)
     return True
 
 
@@ -69,6 +71,8 @@ async def async_setup_entry(
 
     coordinator = ElisaKotiakkuCoordinator(hass, client, entry)
     await coordinator.async_load_energy_state()
+    await coordinator.async_load_economics_state()
+    await coordinator.async_load_analytics_state()
     await coordinator.async_config_entry_first_refresh()
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
@@ -93,7 +97,7 @@ def _async_register_backfill_service(hass: HomeAssistant) -> None:
         return
 
     async def _async_handle_backfill(call: ServiceCall) -> None:
-        """Backfill cumulative energy counters from historical API data."""
+        """Backfill measurement-derived counters from historical API data."""
         start, end = _resolve_backfill_range(call.data)
         target_entry_id = call.data.get(ATTR_ENTRY_ID)
 
@@ -167,6 +171,87 @@ def _async_register_backfill_service(hass: HomeAssistant) -> None:
     )
 
 
+def _async_register_rebuild_economics_service(hass: HomeAssistant) -> None:
+    """Register the economics rebuild service once."""
+    if hass.services.has_service(DOMAIN, SERVICE_REBUILD_ECONOMICS):
+        return
+
+    async def _async_handle_rebuild(call: ServiceCall) -> None:
+        """Rebuild economics and analytics counters from historical API data."""
+        start, end = _resolve_backfill_range(call.data)
+        target_entry_id = call.data.get(ATTR_ENTRY_ID)
+
+        entries = _loaded_entries(hass)
+        if target_entry_id is not None:
+            entries = [
+                entry for entry in entries if entry.entry_id == target_entry_id
+            ]
+            if not entries:
+                raise ServiceValidationError(
+                    f"Entry '{target_entry_id}' is not loaded for {DOMAIN}",
+                    translation_domain=DOMAIN,
+                    translation_key="entry_not_loaded",
+                    translation_placeholders={"entry_id": target_entry_id},
+                )
+        elif not entries:
+            raise ServiceValidationError(
+                "No loaded Elisa Kotiakku config entries found",
+                translation_domain=DOMAIN,
+                translation_key="no_loaded_entries",
+            )
+
+        start_iso = start.isoformat()
+        end_iso = end.isoformat()
+
+        total_processed = 0
+        for entry in entries:
+            coordinator = entry.runtime_data
+            try:
+                processed = await coordinator.async_rebuild_economics(
+                    start_time=start_iso,
+                    end_time=end_iso,
+                )
+            except ConfigEntryAuthFailed as err:
+                raise ServiceValidationError(
+                    str(err),
+                    translation_domain=DOMAIN,
+                    translation_key="backfill_failed",
+                    translation_placeholders={"reason": str(err)},
+                ) from err
+            except UpdateFailed as err:
+                raise ServiceValidationError(
+                    str(err),
+                    translation_domain=DOMAIN,
+                    translation_key="backfill_failed",
+                    translation_placeholders={"reason": str(err)},
+                ) from err
+
+            _LOGGER.info(
+                "Rebuilt economics and analytics from %s window(s) "
+                "for entry %s (%s -> %s)",
+                processed,
+                entry.entry_id,
+                start_iso,
+                end_iso,
+            )
+            total_processed += processed
+
+        if total_processed == 0:
+            raise ServiceValidationError(
+                "No new measurement windows were backfilled. "
+                "The requested range may already be imported.",
+                translation_domain=DOMAIN,
+                translation_key="no_new_windows_backfilled",
+            )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_REBUILD_ECONOMICS,
+        _async_handle_rebuild,
+        schema=BACKFILL_SERVICE_SCHEMA,
+    )
+
+
 async def _async_update_listener(
     hass: HomeAssistant,
     entry: ElisaKotiakkuConfigEntry,
@@ -176,7 +261,7 @@ async def _async_update_listener(
 
 
 async def _async_run_startup_backfill(entry: ElisaKotiakkuConfigEntry) -> None:
-    """Optionally run a startup historical backfill for energy counters."""
+    """Optionally run a startup historical backfill for measurement-derived data."""
     backfill_hours = int(
         entry.options.get(
             CONF_STARTUP_BACKFILL_HOURS,

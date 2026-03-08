@@ -7,14 +7,16 @@
 > [!IMPORTANT]
 > Unofficial custom integration. Not affiliated with or endorsed by Elisa.
 
-Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku/) home battery systems. It fetches 5-minute measurement windows from the Gridle public API and exposes battery, solar, grid, house, and cumulative energy sensors.
+Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku/) home battery systems. It fetches 5-minute measurement windows from the Gridle public API and exposes battery, solar, grid, house, cumulative energy, tariff, cost, battery-savings, and historical analytics sensors.
 
 ## Highlights
 
 - 5-minute polling aligned with source data granularity
 - Full UI config flow (API key only)
 - Energy Dashboard-ready cumulative `kWh` sensors (`TOTAL_INCREASING`)
-- Historical backfill action: `elisa_kotiakku.backfill_energy`
+- Tariff-aware pricing and battery savings against a no-battery `pörssisähkö` baseline
+- Heuristic battery-health and autonomy analytics based on historical performance
+- Historical maintenance actions: `elisa_kotiakku.backfill_energy` and `elisa_kotiakku.rebuild_economics`
 - Reauthentication + reconfiguration support
 - English and Finnish UI translations
 
@@ -71,6 +73,17 @@ For normal Home Assistant usage, only the Home Assistant version requirement app
 In **Settings -> Devices & Services -> Elisa Kotiakku -> Configure**:
 
 - `startup_backfill_hours`: automatically import historical windows at startup (`0` disables).
+- `tariff_preset`: optional dated transfer-tariff preset.
+- `tariff_mode`: choose `spot_only`, `flat`, or `day_night`.
+- `import_retailer_margin`: retailer import margin in `c/kWh`.
+- `export_retailer_adjustment`: export adjustment in `c/kWh` applied on top of spot.
+- `grid_import_transfer_fee`: import-side transfer fee in `c/kWh`.
+- `grid_export_transfer_fee`: export-side transfer fee in `c/kWh`.
+- `electricity_tax_fee`: import-side electricity tax in `c/kWh`.
+- `day_*` / `night_*`: day/night import-side margin and transfer fee values when using `day_night`.
+- `power_fee_rule`: estimated monthly peak-demand rule.
+- `power_fee_rate`: monthly demand-fee rate in `EUR/kW/month`.
+- `battery_expected_usable_capacity_kwh`: configured usable capacity baseline for heuristic health, cycle, and backup-runtime estimates.
 
 ### Configuration parameters
 
@@ -78,6 +91,18 @@ In **Settings -> Devices & Services -> Elisa Kotiakku -> Configure**:
 |---|---|---|---|
 | `api_key` | Yes | Config flow | API key generated in the Kotiakku app |
 | `startup_backfill_hours` | No | Options flow | Hours of history to import on startup |
+| `tariff_preset` | No | Options flow | Optional dated preset that applies transfer-side defaults |
+| `tariff_mode` | No | Options flow | Pricing mode for import margins and transfer fees |
+| `import_retailer_margin` | No | Options flow | Retailer import margin in `c/kWh` |
+| `export_retailer_adjustment` | No | Options flow | Export price adjustment in `c/kWh` |
+| `grid_import_transfer_fee` | No | Options flow | Flat import transfer fee in `c/kWh` |
+| `grid_export_transfer_fee` | No | Options flow | Export transfer fee in `c/kWh` |
+| `electricity_tax_fee` | No | Options flow | Import-side electricity tax in `c/kWh` |
+| `day_import_retailer_margin` / `night_import_retailer_margin` | No | Options flow | Day/night import margin in `c/kWh` |
+| `day_grid_import_transfer_fee` / `night_grid_import_transfer_fee` | No | Options flow | Day/night import transfer fee in `c/kWh` |
+| `power_fee_rule` | No | Options flow | Estimated monthly power-fee formula |
+| `power_fee_rate` | No | Options flow | Estimated power-fee rate in `EUR/kW/month` |
+| `battery_expected_usable_capacity_kwh` | No | Options flow | Configured usable battery capacity baseline for health analytics |
 
 ## Supported devices
 
@@ -85,10 +110,107 @@ In **Settings -> Devices & Services -> Elisa Kotiakku -> Configure**:
 - One config entry per API key / installation
 - Not supported: local-only inverter interfaces (for example direct Modbus)
 
+## Pricing model
+
+The integration does not fetch retailer margins, transfer prices, or taxes from the Gridle API. Those are local options that you configure in Home Assistant.
+
+Configured retailer margins, transfer fees, electricity tax, and power-fee rates are treated as household-billing values. Enter them as gross values if you want the published totals to track typical Finnish household billing. The Gridle spot price is used exactly as provided by the API.
+
+Current formulas:
+
+- Import purchase cost = `grid_import_kWh * (spot_price + import_retailer_margin)`
+- Import transfer cost = `grid_import_kWh * import_transfer_fee`
+- Electricity tax cost = `grid_import_kWh * electricity_tax_fee`
+- Export revenue = `grid_export_kWh * (spot_price + export_retailer_adjustment)`
+- Export transfer cost = `grid_export_kWh * export_transfer_fee`
+- Net site cost = purchase + import transfer + electricity tax + export transfer + power fee - export revenue
+- Battery savings = no-battery baseline net cost - actual net cost
+
+Asset-attribution helper formulas:
+
+- Solar used in house value = `solar_to_house_kWh * (active import unit price + active import transfer fee + active electricity tax fee)`
+- Solar export net value = `solar_to_grid_kWh * (active export unit price - export transfer fee)`
+- Battery house supply value = `battery_to_house_kWh * (active import unit price + active import transfer fee + active electricity tax fee)`
+- Avoided grid import energy = `solar_to_house_kWh + battery_to_house_kWh`
+
+Battery-savings baseline uses the directional flow fields:
+
+- Baseline import = `grid_to_house + battery_to_house`
+- Baseline export = `solar_to_grid + solar_to_battery`
+
+If any required directional field is missing for a window, cost totals still update but battery savings skip that window. The debug sensor `Skipped savings windows` exposes how many windows were skipped in the current economics history.
+
+The attribution value sensors are intentionally narrower than the headline savings sensors:
+
+- `Total battery house supply value` is a gross avoided-import value for battery discharge into the house.
+- `Total battery savings` is still the broader battery-versus-no-battery site savings figure and may differ materially because it includes export effects and power-fee effects.
+- The integration does not attempt solar-through-battery source tracing in this version.
+
+Default day/night split:
+
+- Day: `07:00-22:00`
+- Night: `22:00-07:00`
+
+Current power-fee rules:
+
+- `none`
+- `monthly_max_all_hours`
+- `monthly_top3_all_hours`
+- `monthly_top3_winter_weekday_daytime`
+
+`monthly_top3_winter_weekday_daytime` uses local time, weekdays, and the winter season `November 1-March 31`.
+
+## Battery Health And Autonomy Analytics
+
+The integration now includes a separate historical analytics store built from the same 5-minute measurement windows.
+
+Heuristic battery-health metrics:
+
+- `Estimated usable battery capacity`
+- `Estimated battery health`
+- `Battery equivalent full cycles`
+- `Battery temperature average 30d`
+- `Battery high temperature hours 30d`
+- `Battery low SoC hours 30d`
+- `Battery high SoC hours 30d`
+
+Autonomy and self-sufficiency metrics:
+
+- `Self-sufficiency ratio 30d`
+- `Solar self-consumption ratio 30d`
+- `Battery house supply ratio 30d`
+- `Battery charge from solar ratio 30d`
+- `Estimated backup runtime`
+
+Important caveats:
+
+- These health metrics are heuristic estimates, not manufacturer-reported state of health.
+- The Gridle API does not expose vendor SOH, cycle counters, or cell-level telemetry.
+- `battery_expected_usable_capacity_kwh` is optional. Set it to a realistic usable capacity if you want health percent, equivalent cycles, and backup runtime sensors to report values.
+
+Capacity estimation method:
+
+- The integration tracks monotonic battery charge/discharge episodes from historical windows.
+- A usable-capacity candidate is only accepted when SoC changes by at least `10` percentage points, battery throughput is at least `0.5 kWh`, and the episode remains shorter than `24h`.
+- The published capacity estimate is the median of the latest `20` valid candidates.
+
+Starter tariff presets bundled in the integration:
+
+- `custom`
+- `caruna_espoo_general_2026_01`
+- `caruna_espoo_night_2026_01`
+
+Preset behavior:
+
+- Presets are versioned snapshots, not live tariff lookups.
+- Presets currently apply tariff mode and transfer-side prices when options are saved.
+- Retailer margins, export adjustments, and power-fee settings remain user-controlled.
+- Switch back to `custom` if you want full manual control of transfer prices.
+
 ## Supported functionality
 
-- Read-only sensors: battery, solar, grid, house, spot price, cumulative energy
-- One action: `elisa_kotiakku.backfill_energy`
+- Read-only sensors: battery, solar, grid, spot price, cumulative energy, pricing, savings, analytics, and diagnostics
+- Maintenance actions: `elisa_kotiakku.backfill_energy`, `elisa_kotiakku.rebuild_economics`
 - Reauthentication and reconfiguration via UI
 
 ## Sensor entities
@@ -115,10 +237,63 @@ In **Settings -> Devices & Services -> Elisa Kotiakku -> Configure**:
 | House consumption energy | kWh | Cumulative house consumption |
 | Battery charge energy | kWh | Cumulative battery charging |
 | Battery discharge energy | kWh | Cumulative battery discharging |
+| Active import unit price | c/kWh | Spot price plus currently active retailer import margin |
+| Active export unit price | c/kWh | Spot price plus export adjustment |
+| Total purchase cost | EUR | Cumulative grid energy purchase cost |
+| Total import transfer cost | EUR | Cumulative import-side transfer cost |
+| Total export revenue | EUR | Cumulative export compensation |
+| Total export transfer cost | EUR | Cumulative export-side transfer cost |
+| Total power fee cost | EUR | Cumulative estimated demand-fee cost |
+| Total net site electricity cost | EUR | Cumulative net electricity cost |
+| Total battery savings | EUR | Cumulative battery savings versus no-battery baseline |
+| Total solar used in house value | EUR | Cumulative avoided-import value of direct solar consumption in the house |
+| Total solar export net value | EUR | Cumulative net export value of solar sent to grid after export transfer fee |
+| Total battery house supply value | EUR | Cumulative gross avoided-import value of battery discharge used in the house |
+| Total avoided grid import energy | kWh | Cumulative solar-to-house plus battery-to-house energy |
+| Current month power peak | kW | Qualifying monthly peak demand under the chosen rule |
+| Current month power fee estimate | EUR | Current month estimated power-fee amount |
+| Estimated usable battery capacity | kWh | Median heuristic estimate from recent valid charge/discharge episodes |
+| Estimated battery health | % | Estimated usable capacity versus configured expected capacity |
+| Battery equivalent full cycles | cycles | Lifetime battery throughput divided by configured expected usable capacity |
+| Battery temperature average 30d | °C | Weighted battery temperature average across the latest 30 local days |
+| Battery high temperature hours 30d | h | Hours at or above the high-temperature threshold during the latest 30 days |
+| Battery low SoC hours 30d | h | Hours at or below the low-SoC threshold during the latest 30 days |
+| Battery high SoC hours 30d | h | Hours at or above the high-SoC threshold during the latest 30 days |
+| Self-sufficiency ratio 30d | % | Share of house consumption not served directly from grid-to-house energy |
+| Solar self-consumption ratio 30d | % | Share of solar production consumed locally or stored into the battery |
+| Battery house supply ratio 30d | % | Share of house consumption supplied from the battery |
+| Battery charge from solar ratio 30d | % | Share of battery charging energy sourced from solar |
+| Estimated backup runtime | h | Estimated remaining runtime at current house load and battery SoC |
+
+Disabled by default diagnostic/debug sensors:
+
+- `Configured tariff preset`
+- `Active tariff mode`
+- `Active tariff period`
+- `Configured power fee rule`
+- `Active import retailer margin`
+- `Active import transfer fee`
+- `Active export retailer adjustment`
+- `Active export transfer fee`
+- `Usable capacity candidate count`
+- `Analytics processed periods`
+- `Analytics total day buckets`
+- `Analytics rolling day buckets`
+- `Skipped savings windows`
+- `Economics processed periods`
+
+Most pricing sensors also include helpful attributes such as `last_period_end`, `tariff_mode`, `tariff_period`, and `power_fee_rule`. The new attribution value sensors additionally expose `value_basis`, `includes_power_fee`, and `skipped_directional_windows`.
+
+To enable disabled-by-default debug sensors:
+
+1. Open **Settings -> Devices & Services -> Entities**.
+2. Filter by `Elisa Kotiakku`.
+3. Open the target entity.
+4. Enable it from the entity settings.
 
 ## Actions
 
-Use `elisa_kotiakku.backfill_energy` to import historical windows into cumulative energy counters.
+Use `elisa_kotiakku.backfill_energy` to import historical windows into cumulative energy, pricing, and analytics counters.
 
 ```yaml
 action: elisa_kotiakku.backfill_energy
@@ -133,16 +308,27 @@ Optional fields:
 - `end_time`: ISO-8601 datetime (defaults to now)
 - `hours`: used only when `start_time` is omitted
 
+Use `elisa_kotiakku.rebuild_economics` after changing tariff options when you want to recompute pricing, savings, and derived analytics from a known historical range without touching cumulative energy totals.
+
+```yaml
+action: elisa_kotiakku.rebuild_economics
+data:
+  hours: 168
+```
+
 ## Dashboard ideas
 
 Recommended cards for a first dashboard view:
 
 1. Gauge card for battery SoC
 2. Entities card for key current values (battery, solar, grid, house, spot price)
-3. History graph for power trends
-4. Statistics graph for cumulative energy counters
+3. Entities or statistic cards for current import/export prices and total battery savings
+4. History graph for power trends
+5. Statistics graph for cumulative energy counters
+6. A dedicated diagnostics card for disabled-by-default tariff debug sensors when tuning formulas
 
 Complete example view: [docs/dashboard-example.yaml](docs/dashboard-example.yaml)
+Monthly helper examples: [docs/utility-meter-example.yaml](docs/utility-meter-example.yaml)
 
 ## Automation examples
 
@@ -189,7 +375,7 @@ More examples: [docs/automation-examples.yaml](docs/automation-examples.yaml)
 - Polling interval: every 5 minutes
 - Source: Gridle 5-minute averaged windows
 - Default polling fetches latest completed window
-- Backfill uses same endpoint with `start_time`/`end_time`
+- Backfill and economics rebuild use the same endpoint with `start_time`/`end_time`
 
 ## Known limitations
 
@@ -197,12 +383,15 @@ More examples: [docs/automation-examples.yaml](docs/automation-examples.yaml)
 - Read-only integration (no control actions)
 - Data granularity limited to 5-minute averages
 - API time-range requests limited to max 31 days per request
+- Tariff margins and transfer fees are configured locally; they are not fetched from Gridle
+- Power-fee support is an estimate engine, not a guarantee that a DSO invoice will use the same formula
 
 ## Troubleshooting
 
 - `Invalid API key`: generate a new key in app and run reauthentication
 - Sensors show `unavailable`: verify internet/API availability
 - Backfill imports 0 windows: range likely already processed
+- Economics look wrong after changing tariff options: run `elisa_kotiakku.rebuild_economics` for the desired history window
 - Slow updates after throttling: temporary rate-limit backoff is active
 
 ## Removal instructions

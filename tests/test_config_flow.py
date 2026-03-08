@@ -19,9 +19,40 @@ from custom_components.elisa_kotiakku.config_flow import (
 )
 from custom_components.elisa_kotiakku.const import (
     CONF_API_KEY,
+    CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+    CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
+    CONF_DAY_IMPORT_RETAILER_MARGIN,
+    CONF_ELECTRICITY_TAX_FEE,
+    CONF_EXPORT_RETAILER_ADJUSTMENT,
+    CONF_GRID_EXPORT_TRANSFER_FEE,
+    CONF_GRID_IMPORT_TRANSFER_FEE,
+    CONF_IMPORT_RETAILER_MARGIN,
+    CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE,
+    CONF_NIGHT_IMPORT_RETAILER_MARGIN,
+    CONF_POWER_FEE_RATE,
+    CONF_POWER_FEE_RULE,
     CONF_STARTUP_BACKFILL_HOURS,
+    CONF_TARIFF_MODE,
+    CONF_TARIFF_PRESET,
+    DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+    DEFAULT_DAY_GRID_IMPORT_TRANSFER_FEE,
+    DEFAULT_DAY_IMPORT_RETAILER_MARGIN,
+    DEFAULT_ELECTRICITY_TAX_FEE,
+    DEFAULT_EXPORT_RETAILER_ADJUSTMENT,
+    DEFAULT_GRID_EXPORT_TRANSFER_FEE,
+    DEFAULT_GRID_IMPORT_TRANSFER_FEE,
+    DEFAULT_IMPORT_RETAILER_MARGIN,
+    DEFAULT_NIGHT_GRID_IMPORT_TRANSFER_FEE,
+    DEFAULT_NIGHT_IMPORT_RETAILER_MARGIN,
+    DEFAULT_POWER_FEE_RATE,
+    DEFAULT_POWER_FEE_RULE,
     DEFAULT_STARTUP_BACKFILL_HOURS,
+    DEFAULT_TARIFF_MODE,
+    DEFAULT_TARIFF_PRESET,
     MAX_BACKFILL_HOURS,
+    POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
+    TARIFF_MODE_DAY_NIGHT,
+    TARIFF_PRESET_CARUNA_ESPOO_NIGHT_2026_01,
 )
 
 
@@ -81,6 +112,33 @@ def reconfigure_flow() -> ElisaKotiakkuConfigFlow:
     f._get_reconfigure_entry = MagicMock(return_value=reconfigure_entry)
     f._async_current_entries = MagicMock(return_value=[reconfigure_entry])
     return f
+
+
+def _expected_default_options() -> dict[str, float | int | str]:
+    """Return expected normalized default options."""
+    return {
+        CONF_STARTUP_BACKFILL_HOURS: DEFAULT_STARTUP_BACKFILL_HOURS,
+        CONF_TARIFF_PRESET: DEFAULT_TARIFF_PRESET,
+        CONF_TARIFF_MODE: DEFAULT_TARIFF_MODE,
+        CONF_IMPORT_RETAILER_MARGIN: DEFAULT_IMPORT_RETAILER_MARGIN,
+        CONF_EXPORT_RETAILER_ADJUSTMENT: DEFAULT_EXPORT_RETAILER_ADJUSTMENT,
+        CONF_GRID_IMPORT_TRANSFER_FEE: DEFAULT_GRID_IMPORT_TRANSFER_FEE,
+        CONF_GRID_EXPORT_TRANSFER_FEE: DEFAULT_GRID_EXPORT_TRANSFER_FEE,
+        CONF_ELECTRICITY_TAX_FEE: DEFAULT_ELECTRICITY_TAX_FEE,
+        CONF_DAY_IMPORT_RETAILER_MARGIN: DEFAULT_DAY_IMPORT_RETAILER_MARGIN,
+        CONF_NIGHT_IMPORT_RETAILER_MARGIN: DEFAULT_NIGHT_IMPORT_RETAILER_MARGIN,
+        CONF_DAY_GRID_IMPORT_TRANSFER_FEE: (
+            DEFAULT_DAY_GRID_IMPORT_TRANSFER_FEE
+        ),
+        CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE: (
+            DEFAULT_NIGHT_GRID_IMPORT_TRANSFER_FEE
+        ),
+        CONF_POWER_FEE_RULE: DEFAULT_POWER_FEE_RULE,
+        CONF_POWER_FEE_RATE: DEFAULT_POWER_FEE_RATE,
+        CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: (
+            DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH
+        ),
+    }
 
 
 class TestUniqueIdDerivation:
@@ -533,7 +591,23 @@ class TestOptionsFlow:
     async def test_options_show_form_with_current_value(self) -> None:
         """Options step should show current startup backfill value."""
         entry = MagicMock()
-        entry.options = {CONF_STARTUP_BACKFILL_HOURS: 12}
+        entry.options = {
+            CONF_STARTUP_BACKFILL_HOURS: 12,
+            CONF_TARIFF_PRESET: DEFAULT_TARIFF_PRESET,
+            CONF_TARIFF_MODE: TARIFF_MODE_DAY_NIGHT,
+            CONF_IMPORT_RETAILER_MARGIN: 0.5,
+            CONF_EXPORT_RETAILER_ADJUSTMENT: -0.2,
+            CONF_GRID_IMPORT_TRANSFER_FEE: 4.1,
+            CONF_GRID_EXPORT_TRANSFER_FEE: 0.0,
+            CONF_ELECTRICITY_TAX_FEE: 2.79,
+            CONF_DAY_IMPORT_RETAILER_MARGIN: 0.6,
+            CONF_NIGHT_IMPORT_RETAILER_MARGIN: 0.4,
+            CONF_DAY_GRID_IMPORT_TRANSFER_FEE: 5.1,
+            CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE: 3.1,
+            CONF_POWER_FEE_RULE: POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
+            CONF_POWER_FEE_RATE: 8.5,
+            CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: 10.2,
+        }
         options_flow = ElisaKotiakkuOptionsFlow(entry)
         options_flow.async_show_form = MagicMock(return_value={"type": "form"})
 
@@ -543,9 +617,12 @@ class TestOptionsFlow:
         kwargs = options_flow.async_show_form.call_args.kwargs
         assert kwargs["step_id"] == "init"
         schema = kwargs["data_schema"]
-        assert schema({CONF_STARTUP_BACKFILL_HOURS: 12}) == {
-            CONF_STARTUP_BACKFILL_HOURS: 12
-        }
+        validated = schema(entry.options)
+        assert validated[CONF_STARTUP_BACKFILL_HOURS] == 12
+        assert validated[CONF_TARIFF_MODE] == TARIFF_MODE_DAY_NIGHT
+        assert validated[CONF_POWER_FEE_RATE] == 8.5
+        assert validated[CONF_ELECTRICITY_TAX_FEE] == 2.79
+        assert validated[CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH] == 10.2
 
     async def test_options_show_form_uses_default_when_missing(self) -> None:
         """Options step should fallback to default when no options are set."""
@@ -558,9 +635,7 @@ class TestOptionsFlow:
 
         kwargs = options_flow.async_show_form.call_args.kwargs
         schema = kwargs["data_schema"]
-        assert schema({}) == {
-            CONF_STARTUP_BACKFILL_HOURS: DEFAULT_STARTUP_BACKFILL_HOURS
-        }
+        assert schema({}) == _expected_default_options()
 
     async def test_options_create_entry_on_submit(self) -> None:
         """Submitting options should create options entry."""
@@ -572,13 +647,45 @@ class TestOptionsFlow:
         )
 
         result = await options_flow.async_step_init(
-            user_input={CONF_STARTUP_BACKFILL_HOURS: 48}
+            user_input={
+                CONF_STARTUP_BACKFILL_HOURS: 48,
+                CONF_TARIFF_PRESET: DEFAULT_TARIFF_PRESET,
+                CONF_TARIFF_MODE: TARIFF_MODE_DAY_NIGHT,
+                CONF_IMPORT_RETAILER_MARGIN: 0.5,
+                CONF_EXPORT_RETAILER_ADJUSTMENT: -0.2,
+                CONF_GRID_IMPORT_TRANSFER_FEE: 4.1,
+                CONF_GRID_EXPORT_TRANSFER_FEE: 0.0,
+                CONF_ELECTRICITY_TAX_FEE: 2.79,
+                CONF_DAY_IMPORT_RETAILER_MARGIN: 0.7,
+                CONF_NIGHT_IMPORT_RETAILER_MARGIN: 0.3,
+                CONF_DAY_GRID_IMPORT_TRANSFER_FEE: 5.1,
+                CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE: 2.9,
+                CONF_POWER_FEE_RULE: POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
+                CONF_POWER_FEE_RATE: 9.1,
+                CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: 12.5,
+            }
         )
 
         assert result["type"] == "create_entry"
         options_flow.async_create_entry.assert_called_once_with(
             title="",
-            data={CONF_STARTUP_BACKFILL_HOURS: 48},
+            data={
+                CONF_STARTUP_BACKFILL_HOURS: 48,
+                CONF_TARIFF_PRESET: DEFAULT_TARIFF_PRESET,
+                CONF_TARIFF_MODE: TARIFF_MODE_DAY_NIGHT,
+                CONF_IMPORT_RETAILER_MARGIN: 0.5,
+                CONF_EXPORT_RETAILER_ADJUSTMENT: -0.2,
+                CONF_GRID_IMPORT_TRANSFER_FEE: 4.1,
+                CONF_GRID_EXPORT_TRANSFER_FEE: 0.0,
+                CONF_ELECTRICITY_TAX_FEE: 2.79,
+                CONF_DAY_IMPORT_RETAILER_MARGIN: 0.7,
+                CONF_NIGHT_IMPORT_RETAILER_MARGIN: 0.3,
+                CONF_DAY_GRID_IMPORT_TRANSFER_FEE: 5.1,
+                CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE: 2.9,
+                CONF_POWER_FEE_RULE: POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
+                CONF_POWER_FEE_RATE: 9.1,
+                CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: 12.5,
+            },
         )
 
     async def test_options_schema_accepts_min_and_max_bounds(self) -> None:
@@ -592,10 +699,12 @@ class TestOptionsFlow:
 
         schema = options_flow.async_show_form.call_args.kwargs["data_schema"]
         assert schema({CONF_STARTUP_BACKFILL_HOURS: 0}) == {
-            CONF_STARTUP_BACKFILL_HOURS: 0
+            **_expected_default_options(),
+            CONF_STARTUP_BACKFILL_HOURS: 0,
         }
         assert schema({CONF_STARTUP_BACKFILL_HOURS: MAX_BACKFILL_HOURS}) == {
-            CONF_STARTUP_BACKFILL_HOURS: MAX_BACKFILL_HOURS
+            **_expected_default_options(),
+            CONF_STARTUP_BACKFILL_HOURS: MAX_BACKFILL_HOURS,
         }
 
     async def test_options_schema_rejects_out_of_range_values(self) -> None:
@@ -612,3 +721,92 @@ class TestOptionsFlow:
             schema({CONF_STARTUP_BACKFILL_HOURS: -1})
         with pytest.raises(vol.Invalid):
             schema({CONF_STARTUP_BACKFILL_HOURS: MAX_BACKFILL_HOURS + 1})
+
+    async def test_options_rejects_negative_tariff_values(self) -> None:
+        """Tariff values that must be non-negative should be rejected."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_show_form = MagicMock(return_value={"type": "form"})
+
+        await options_flow.async_step_init(
+            user_input={
+                **_expected_default_options(),
+                CONF_GRID_IMPORT_TRANSFER_FEE: -1,
+            }
+        )
+
+        options_flow.async_show_form.assert_called_once()
+        assert (
+            options_flow.async_show_form.call_args.kwargs["errors"]["base"]
+            == "invalid_tariff_value"
+        )
+
+    async def test_options_rejects_negative_expected_capacity(self) -> None:
+        """Configured expected capacity must be non-negative."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_show_form = MagicMock(return_value={"type": "form"})
+
+        await options_flow.async_step_init(
+            user_input={
+                **_expected_default_options(),
+                CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: -0.1,
+            }
+        )
+
+        options_flow.async_show_form.assert_called_once()
+        assert (
+            options_flow.async_show_form.call_args.kwargs["errors"]["base"]
+            == "invalid_tariff_value"
+        )
+
+    async def test_options_rejects_negative_electricity_tax(self) -> None:
+        """Configured electricity tax must be non-negative."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_show_form = MagicMock(return_value={"type": "form"})
+
+        await options_flow.async_step_init(
+            user_input={
+                **_expected_default_options(),
+                CONF_ELECTRICITY_TAX_FEE: -0.01,
+            }
+        )
+
+        options_flow.async_show_form.assert_called_once()
+        assert (
+            options_flow.async_show_form.call_args.kwargs["errors"]["base"]
+            == "invalid_tariff_value"
+        )
+
+    async def test_options_apply_tariff_preset_on_submit(self) -> None:
+        """Selecting a preset should normalize transfer values on save."""
+        entry = MagicMock()
+        entry.options = {}
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_create_entry = MagicMock(
+            return_value={"type": "create_entry"}
+        )
+
+        await options_flow.async_step_init(
+            user_input={
+                **_expected_default_options(),
+                CONF_TARIFF_PRESET: TARIFF_PRESET_CARUNA_ESPOO_NIGHT_2026_01,
+                CONF_TARIFF_MODE: "flat",
+                CONF_GRID_IMPORT_TRANSFER_FEE: 99.0,
+                CONF_DAY_GRID_IMPORT_TRANSFER_FEE: 99.0,
+                CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE: 99.0,
+            }
+        )
+
+        options_flow.async_create_entry.assert_called_once()
+        saved = options_flow.async_create_entry.call_args.kwargs["data"]
+        assert saved[CONF_TARIFF_PRESET] == (
+            TARIFF_PRESET_CARUNA_ESPOO_NIGHT_2026_01
+        )
+        assert saved[CONF_TARIFF_MODE] == TARIFF_MODE_DAY_NIGHT
+        assert saved[CONF_DAY_GRID_IMPORT_TRANSFER_FEE] == 5.11
+        assert saved[CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE] == 3.12
