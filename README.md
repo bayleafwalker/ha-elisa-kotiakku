@@ -16,6 +16,7 @@ Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku
 - Energy Dashboard-ready cumulative `kWh` sensors (`TOTAL_INCREASING`)
 - Tariff-aware pricing and battery savings against a no-battery `pörssisähkö` baseline
 - Heuristic battery-health and autonomy analytics based on historical performance
+- Diagnostic maintenance buttons: backfill energy, rebuild economics, force refresh
 - Historical maintenance actions: `elisa_kotiakku.backfill_energy` and `elisa_kotiakku.rebuild_economics`
 - Reauthentication + reconfiguration support
 - English and Finnish UI translations
@@ -80,7 +81,9 @@ For normal Home Assistant usage, only the Home Assistant version requirement app
 
 In **Settings -> Devices & Services -> Elisa Kotiakku -> Configure**:
 
-- Setup and history:
+The options flow uses native Home Assistant selectors (dropdowns, number inputs) with descriptive labels showing preset values where applicable. Fields are grouped by category and ordered so that the most impactful settings (battery capacity, tariff preset) appear first.
+
+- Battery and setup:
   - `startup_backfill_hours`: automatically import historical windows at startup (`0` disables).
 - Tariff presets and pricing mode:
   - `tariff_preset`: optional dated transfer-tariff preset.
@@ -238,7 +241,9 @@ Preset behavior:
 ## Supported functionality
 
 - Read-only sensors: battery, solar, grid, spot price, cumulative energy, pricing, savings, analytics, and diagnostics
+- Diagnostic button entities: `Backfill energy`, `Rebuild economics`, `Force data refresh`
 - Maintenance actions: `elisa_kotiakku.backfill_energy`, `elisa_kotiakku.rebuild_economics`
+- Display precision configured on all numeric sensors for consistent dashboard rendering
 - Reauthentication and reconfiguration via UI
 
 ## Sensor entities
@@ -330,6 +335,18 @@ Disabled by default diagnostic/debug sensors:
 - `Economics processed periods`
 
 Most pricing sensors also include helpful attributes such as `last_period_end`, `tariff_mode`, `tariff_period`, and `power_fee_rule`. The new attribution value sensors additionally expose `value_basis`, `includes_power_fee`, `includes_electricity_tax`, and `skipped_directional_windows`.
+
+All numeric sensors declare `suggested_display_precision` so that dashboard cards and history graphs render values with appropriate decimal places without manual template formatting.
+
+### Button entities
+
+| Entity | Category | Description |
+|---|---|---|
+| Backfill energy | Diagnostic | Import historical measurement windows into cumulative energy, pricing, and analytics counters |
+| Rebuild economics | Diagnostic | Recompute pricing, savings, and derived analytics from historical data without touching energy totals |
+| Force data refresh | Diagnostic | Trigger an immediate coordinator data refresh outside the normal 5-minute polling cycle |
+
+These buttons provide one-tap access to the same maintenance operations available through actions, useful for quick dashboard controls or when scripting is not needed.
 
 To enable disabled-by-default debug sensors:
 

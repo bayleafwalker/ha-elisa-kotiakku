@@ -255,8 +255,6 @@ class TestCoordinatorUpdate:
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-
         mock_api_client.async_get_latest.side_effect = ElisaKotiakkuApiError(
             "Connection lost"
         )
@@ -273,8 +271,6 @@ class TestCoordinatorUpdate:
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-
         mock_api_client.async_get_latest.side_effect = ElisaKotiakkuRateLimitError(
             retry_after=900
         )
@@ -293,8 +289,6 @@ class TestCoordinatorUpdate:
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-
         mock_api_client.async_get_latest.side_effect = [
             ElisaKotiakkuRateLimitError(retry_after=900),
             SAMPLE_MEASUREMENT,
@@ -1019,8 +1013,6 @@ class TestEconomicsMath:
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-
         mock_api_client.async_get_range.side_effect = ElisaKotiakkuApiError("boom")
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry

@@ -48,7 +48,6 @@ class TestButtonDescriptions:
 class TestButtonSetupEntry:
     """Tests for async_setup_entry."""
 
-    @pytest.mark.asyncio
     async def test_setup_creates_all_buttons(
         self, mock_coordinator: MagicMock
     ) -> None:
@@ -86,7 +85,6 @@ class TestElisaKotiakkuButton:
         button = self._make_button(mock_coordinator, "rebuild_economics")
         assert button.entity_description.key == "rebuild_economics"
 
-    @pytest.mark.asyncio
     async def test_backfill_energy_press(
         self, mock_coordinator: MagicMock
     ) -> None:
@@ -99,7 +97,6 @@ class TestElisaKotiakkuButton:
         call_kwargs = mock_coordinator.async_backfill_energy.call_args
         assert "start_time" in call_kwargs.kwargs or len(call_kwargs.args) >= 1
 
-    @pytest.mark.asyncio
     async def test_backfill_energy_press_error(
         self, mock_coordinator: MagicMock
     ) -> None:
@@ -111,7 +108,6 @@ class TestElisaKotiakkuButton:
         with pytest.raises(HomeAssistantError, match="Backfill energy failed"):
             await button.async_press()
 
-    @pytest.mark.asyncio
     async def test_rebuild_economics_press(
         self, mock_coordinator: MagicMock
     ) -> None:
@@ -124,7 +120,6 @@ class TestElisaKotiakkuButton:
         call_kwargs = mock_coordinator.async_rebuild_economics.call_args
         assert "start_time" in call_kwargs.kwargs or len(call_kwargs.args) >= 1
 
-    @pytest.mark.asyncio
     async def test_rebuild_economics_press_error(
         self, mock_coordinator: MagicMock
     ) -> None:
@@ -136,7 +131,6 @@ class TestElisaKotiakkuButton:
         with pytest.raises(HomeAssistantError, match="Rebuild economics failed"):
             await button.async_press()
 
-    @pytest.mark.asyncio
     async def test_force_data_refresh_press(
         self, mock_coordinator: MagicMock
     ) -> None:

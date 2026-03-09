@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from unittest.mock import MagicMock
 
 import pytest
@@ -21,6 +22,19 @@ from custom_components.elisa_kotiakku.sensor import (
 from custom_components.elisa_kotiakku.tariff import ActiveTariffRates
 
 from .conftest import SAMPLE_MEASUREMENT
+
+# Common tariff rates reused across coordinator sensor tests.
+_SAMPLE_ACTIVE_RATES = ActiveTariffRates(
+    tariff_mode="day_night",
+    tariff_period="night",
+    import_retailer_margin_cents_per_kwh=1.2,
+    import_transfer_fee_cents_per_kwh=4.1,
+    electricity_tax_cents_per_kwh=2.79,
+    export_retailer_adjustment_cents_per_kwh=-0.2,
+    export_transfer_fee_cents_per_kwh=0.0,
+    import_unit_price_cents_per_kwh=5.4,
+    export_unit_price_cents_per_kwh=1.6,
+)
 
 
 class TestPowerSensorDescriptions:
@@ -261,49 +275,19 @@ class TestElisaKotiakkuCoordinatorSensor:
     def test_active_rate_sensor_reads_active_tariff(
         self, mock_coordinator: MagicMock
     ) -> None:
-        mock_coordinator.get_active_tariff_rates.return_value = ActiveTariffRates(
-            tariff_mode="day_night",
-            tariff_period="night",
-            import_retailer_margin_cents_per_kwh=1.2,
-            import_transfer_fee_cents_per_kwh=4.1,
-            electricity_tax_cents_per_kwh=2.79,
-            export_retailer_adjustment_cents_per_kwh=-0.2,
-            export_transfer_fee_cents_per_kwh=0.0,
-            import_unit_price_cents_per_kwh=5.4,
-            export_unit_price_cents_per_kwh=1.6,
-        )
+        mock_coordinator.get_active_tariff_rates.return_value = _SAMPLE_ACTIVE_RATES
         sensor = self._make_sensor(mock_coordinator, "active_import_unit_price")
         assert sensor.native_value == 5.4
 
     def test_active_electricity_tax_sensor_reads_active_tariff(
         self, mock_coordinator: MagicMock
     ) -> None:
-        mock_coordinator.get_active_tariff_rates.return_value = ActiveTariffRates(
-            tariff_mode="day_night",
-            tariff_period="night",
-            import_retailer_margin_cents_per_kwh=1.2,
-            import_transfer_fee_cents_per_kwh=4.1,
-            electricity_tax_cents_per_kwh=2.79,
-            export_retailer_adjustment_cents_per_kwh=-0.2,
-            export_transfer_fee_cents_per_kwh=0.0,
-            import_unit_price_cents_per_kwh=5.4,
-            export_unit_price_cents_per_kwh=1.6,
-        )
+        mock_coordinator.get_active_tariff_rates.return_value = _SAMPLE_ACTIVE_RATES
         sensor = self._make_sensor(mock_coordinator, "active_electricity_tax_fee")
         assert sensor.native_value == 2.79
 
     def test_debug_string_sensor_reads_mode(self, mock_coordinator: MagicMock) -> None:
-        mock_coordinator.get_active_tariff_rates.return_value = ActiveTariffRates(
-            tariff_mode="day_night",
-            tariff_period="night",
-            import_retailer_margin_cents_per_kwh=1.2,
-            import_transfer_fee_cents_per_kwh=4.1,
-            electricity_tax_cents_per_kwh=2.79,
-            export_retailer_adjustment_cents_per_kwh=-0.2,
-            export_transfer_fee_cents_per_kwh=0.0,
-            import_unit_price_cents_per_kwh=5.4,
-            export_unit_price_cents_per_kwh=1.6,
-        )
+        mock_coordinator.get_active_tariff_rates.return_value = _SAMPLE_ACTIVE_RATES
         sensor = self._make_sensor(mock_coordinator, "active_tariff_period")
         assert sensor.native_value == "night"
 
@@ -372,17 +356,7 @@ class TestElisaKotiakkuCoordinatorSensor:
         mock_coordinator.economics_last_period_end = "2025-12-17T00:05:00+02:00"
         mock_coordinator.skipped_savings_window_count = 3
         mock_coordinator.tariff_config.power_fee_rule = "monthly_max_all_hours"
-        mock_coordinator.get_active_tariff_rates.return_value = ActiveTariffRates(
-            tariff_mode="day_night",
-            tariff_period="night",
-            import_retailer_margin_cents_per_kwh=1.2,
-            import_transfer_fee_cents_per_kwh=4.1,
-            electricity_tax_cents_per_kwh=2.79,
-            export_retailer_adjustment_cents_per_kwh=-0.2,
-            export_transfer_fee_cents_per_kwh=0.0,
-            import_unit_price_cents_per_kwh=5.4,
-            export_unit_price_cents_per_kwh=1.6,
-        )
+        mock_coordinator.get_active_tariff_rates.return_value = _SAMPLE_ACTIVE_RATES
         sensor = self._make_sensor(mock_coordinator, "total_battery_savings")
         assert sensor.extra_state_attributes == {
             "last_period_end": "2025-12-17T00:05:00+02:00",
@@ -432,16 +406,8 @@ class TestElisaKotiakkuCoordinatorSensor:
         mock_coordinator.get_attribution_skipped_window_count = MagicMock(
             return_value=2
         )
-        mock_coordinator.get_active_tariff_rates.return_value = ActiveTariffRates(
-            tariff_mode="day_night",
-            tariff_period="night",
-            import_retailer_margin_cents_per_kwh=1.2,
-            import_transfer_fee_cents_per_kwh=4.1,
-            electricity_tax_cents_per_kwh=2.79,
-            export_retailer_adjustment_cents_per_kwh=-0.2,
-            export_transfer_fee_cents_per_kwh=0.3,
-            import_unit_price_cents_per_kwh=5.4,
-            export_unit_price_cents_per_kwh=1.6,
+        mock_coordinator.get_active_tariff_rates.return_value = replace(
+            _SAMPLE_ACTIVE_RATES, export_transfer_fee_cents_per_kwh=0.3
         )
         sensor = self._make_sensor(
             mock_coordinator, "total_solar_used_in_house_value"
