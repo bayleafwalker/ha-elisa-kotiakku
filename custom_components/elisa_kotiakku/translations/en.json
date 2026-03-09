@@ -67,6 +67,17 @@
     }
   },
   "entity": {
+    "button": {
+      "backfill_energy": {
+        "name": "Backfill energy"
+      },
+      "rebuild_economics": {
+        "name": "Rebuild economics"
+      },
+      "force_data_refresh": {
+        "name": "Force data refresh"
+      }
+    },
     "sensor": {
       "battery_power": {
         "name": "Battery power"

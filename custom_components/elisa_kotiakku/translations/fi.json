@@ -67,6 +67,17 @@
     }
   },
   "entity": {
+    "button": {
+      "backfill_energy": {
+        "name": "Täytä energiahistoria"
+      },
+      "rebuild_economics": {
+        "name": "Rakenna talous uudelleen"
+      },
+      "force_data_refresh": {
+        "name": "Pakota tietojen päivitys"
+      }
+    },
     "sensor": {
       "battery_power": {
         "name": "Akun teho"

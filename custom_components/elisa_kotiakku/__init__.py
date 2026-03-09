@@ -35,7 +35,7 @@ from .coordinator import ElisaKotiakkuCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.SENSOR]
 
 BACKFILL_SERVICE_SCHEMA = vol.Schema(
     {
