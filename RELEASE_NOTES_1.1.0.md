@@ -15,4 +15,7 @@
 - Solar and battery value attribution sensors
 - Historical analytics and heuristic battery-health sensors
 - Caruna and Caruna Espoo starter transfer-tariff presets
-- Improved automated test coverage and release-readiness checks
+- Diagnostic maintenance buttons: backfill energy, rebuild economics, force data refresh
+- Display precision on all numeric sensors for consistent dashboard rendering
+- Improved options flow with native selectors, reordered fields, and descriptive preset labels
+- 250 automated tests with 98% coverage

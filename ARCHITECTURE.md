@@ -2,21 +2,26 @@
 
 ## Overview
 
-This is a Home Assistant custom integration that polls the Elisa Kotiakku (Gridle) public REST API and exposes measurement data as sensor entities. It follows the standard HA custom component pattern: config flow → coordinator → platform entities.
+This is a Home Assistant custom integration that polls the Elisa Kotiakku (Gridle) public REST API and exposes measurement data as sensor and button entities. It follows the standard HA custom component pattern: config flow → coordinator → platform entities.
 
 ```
 custom_components/elisa_kotiakku/
 ├── __init__.py          # Entry point: sets up coordinator, forwards platforms
+├── analytics.py         # Historical analytics engine (health, autonomy, rolling stats)
 ├── api.py               # Async HTTP client for the Gridle API
-├── config_flow.py       # UI-based configuration (API key input + validation)
-├── const.py             # Domain, URLs, intervals, device metadata constants
-├── coordinator.py       # DataUpdateCoordinator — polls API every 5 min
+├── button.py            # Button platform — diagnostic maintenance buttons
+├── config_flow.py       # UI-based configuration (API key, tariff, analytics options)
+├── const.py             # Domain, URLs, intervals, device metadata, tariff constants
+├── coordinator.py       # DataUpdateCoordinator — polls API, energy/economics/analytics state
 ├── diagnostics.py       # Diagnostics dump (redacts API key)
 ├── entity.py            # Base entity class (device info, attribution)
 ├── manifest.json        # HA integration metadata
-├── sensor.py            # Sensor platform — power + cumulative energy entities
-├── services.yaml        # Service definitions (historical energy backfill)
+├── sensor.py            # Sensor platform — measurement, energy, coordinator-derived entities
+├── services.yaml        # Service definitions (backfill_energy, rebuild_economics)
 ├── strings.json         # Default UI strings
+├── tariff.py            # Tariff config, presets, time-of-use resolution, pricing helpers
+├── util.py              # Shared utilities (ISO 8601 parsing, duration helpers)
+├── brand/               # Brand assets (icon.png, logo.png)
 └── translations/
     ├── en.json          # English translations
     └── fi.json          # Finnish translations
@@ -31,9 +36,16 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
                                                               ▼
                                                     MeasurementData dataclass
                                                               │
+                          ┌───────────────────────────────────┼──────────────────────────────────┐
+                          │                                   │                                  │
+                          ▼                                   ▼                                  ▼
+               14 measurement sensors              6 cumulative energy        43 coordinator sensors
+               (SensorEntity)                      sensors (TOTAL_INCREASING) (tariff, economics,
+                                                                               analytics, debug)
+                                                              │
                                                               ▼
-                                                  Power sensors + energy sensors
-                                                    (SensorEntity instances)
+                                                   3 diagnostic buttons
+                                                   (ButtonEntity)
 ```
 
 ### API layer (`api.py`)
@@ -41,9 +53,10 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
 - `ElisaKotiakkuApiClient` wraps `aiohttp.ClientSession`.
 - Sends `x-api-key` header for authentication.
 - `async_get_latest()` — calls the endpoint without time params; returns last complete 5-minute window.
-- `async_get_range(start_time, end_time)` — time-range queries (for future use).
+- `async_get_range(start_time, end_time)` — time-range queries for backfill and economics rebuild.
 - `async_validate_key()` — lightweight auth check used during config flow.
-- Raises typed exceptions: `ElisaKotiakkuAuthError` (401/403), `ElisaKotiakkuRateLimitError` (429), `ElisaKotiakkuApiError` (generic).
+- Validates response shape: top-level must be a list and each item must be a dict.
+- Raises typed exceptions: `ElisaKotiakkuAuthError` (401/403), `ElisaKotiakkuRateLimitError` (429), `ElisaKotiakkuApiError` (generic / response shape / 422).
 
 ### Coordinator (`coordinator.py`)
 
@@ -53,34 +66,69 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
   - `ElisaKotiakkuAuthError` → `ConfigEntryAuthFailed` (triggers HA reauth flow)
   - `ElisaKotiakkuRateLimitError` → `UpdateFailed` and temporarily increases coordinator `update_interval` using `Retry-After` when available
   - Other API errors → `UpdateFailed`
-- Maintains cumulative energy totals (kWh) derived from each 5-minute window.
-- Persists cumulative totals and the last processed `period_end` via HA storage.
-- Tracks processed `period_end` values to deduplicate polling + backfill windows.
-- Provides `async_backfill_energy(start_time, end_time)` to import historical windows into totals.
+- Maintains three independent persistent state stores:
+  - **Energy store**: cumulative `kWh` counters derived from each 5-minute window. Tracks processed `period_end` values to deduplicate polling + backfill windows.
+  - **Economics store**: tariff-based pricing totals (purchase cost, transfer, tax, export revenue, power fee, battery savings, attribution values). Invalidated on tariff-option changes (tariff signature mismatch).
+  - **Analytics store**: historical battery-health and autonomy metrics (daily buckets, capacity episodes, rolling 30-day ratios).
+- Provides `async_backfill_energy(start_time, end_time)` to import historical windows into all three stores.
+- Provides `async_rebuild_economics(start_time, end_time)` to reset and recompute economics + analytics from historical data without touching cumulative energy totals.
+- Builds `TariffConfig` from config entry options; resolves `ActiveTariffRates` per-window using tariff mode, time-of-use schedule, and spot price.
+- Tracks monthly power-fee hour buckets, monthly peak demands, and computes power-fee estimates under the configured rule.
+
+### Tariff layer (`tariff.py`)
+
+- `TariffConfig` — frozen dataclass built from config entry options; caches a tariff signature for stale-state detection.
+- `ActiveTariffRates` — frozen dataclass with resolved per-window pricing (import/export unit price, margins, transfer fees, tax).
+- Time-of-use resolution: day/night split (`07:00-22:00`) and seasonal day/night (`November 1-March 31`, weekdays only).
+- Bundled preset snapshots for Caruna and Caruna Espoo transfer tariffs.
+- `normalize_tariff_options()` applies preset defaults when a preset is selected.
+
+### Analytics engine (`analytics.py`)
+
+- `AnalyticsState` — mutable state container for daily buckets, capacity episodes, and rolling metrics.
+- Heuristic battery capacity estimation from monotonic charge/discharge episodes (SoC delta ≥ 10 pp, energy ≥ 0.5 kWh, duration < 24h). Publishes median of latest 20 valid candidates.
+- 30-day rolling analytics: self-sufficiency, solar self-consumption, battery supply ratio, temperature exposure, SoC stress hours.
+- `DailyAnalyticsBucket` — aggregated per-day values pruned to maintain the rolling window.
 
 ### Config flow (`config_flow.py`)
 
 - **User step**: user provides API key; validates with a live API call before creating the entry.
 - **Reauthentication flow**: triggered when the coordinator receives a `ConfigEntryAuthFailed`. Prompts for a new API key, validates it, and updates the config entry.
 - **Reconfigure flow**: allows changing API key from the UI after setup.
-- **Options flow**: supports `startup_backfill_hours` (automatic historical import on startup).
-- Uses a SHA-256 fingerprint of API key as `unique_id` to prevent duplicate entries without storing raw secret as identifier.
+- **Options flow** (16 fields with native HA selectors):
+  - Battery: `battery_expected_usable_capacity_kwh`
+  - Data import: `startup_backfill_hours`
+  - Tariff preset and mode: `tariff_preset` (dropdown), `tariff_mode` (dropdown)
+  - Import pricing: `import_retailer_margin`, `grid_import_transfer_fee`
+  - Day/night pricing: `day_import_retailer_margin`, `night_import_retailer_margin`, `day_grid_import_transfer_fee`, `night_grid_import_transfer_fee`
+  - Tax and export: `electricity_tax_fee`, `export_retailer_adjustment`, `grid_export_transfer_fee`
+  - Power fee: `power_fee_rule` (dropdown), `power_fee_rate`
+- Uses `SelectSelector` for dropdowns with `translation_key` for descriptive labels, `NumberSelector` for numeric inputs with units.
+- Uses a PBKDF2-HMAC SHA-256 fingerprint of API key as `unique_id` to prevent duplicate entries without storing raw secret as identifier.
 
 ### Sensor platform (`sensor.py`)
 
-- Declarative sensor descriptions using `SensorEntityDescription` subclass.
-- Each description has a `value_fn` lambda that extracts one field from `MeasurementData`.
-- 14 measurement sensors covering: battery, solar, grid, house, power-flow breakdown, spot price, temperature.
-- 6 cumulative energy sensors (`kWh`, `TOTAL_INCREASING`) for Energy Dashboard usage:
-  - grid import/export
-  - solar production
-  - house consumption
-  - battery charge/discharge
-- Measurement sensors expose `period_start`/`period_end` attributes.
-- Energy sensors expose `last_period_end` (latest window included in cumulative totals).
+Three families of sensor descriptions, all declarative:
+
+- **14 measurement sensors** (`ElisaKotiakkuSensorDescription`): battery, solar, grid, house power; 7 directional flow breakdowns; spot price; battery temperature. Each has a `value_fn` lambda extracting one field from `MeasurementData`.
+- **6 cumulative energy sensors** (`ElisaKotiakkuEnergySensorDescription`): grid import/export, solar production, house consumption, battery charge/discharge. `state_class=TOTAL_INCREASING` for Energy Dashboard.
+- **43 coordinator-derived sensors** (`ElisaKotiakkuCoordinatorSensorDescription`): tariff config debug (4), active tariff rates (8), economics totals (12), attribution values (4), power-fee tracking (2), analytics health/autonomy (12), and debug counters (5). Each has a `value_fn` lambda reading coordinator state.
+
+Total: **63 sensor entities**, of which **25 are disabled by default** (7 flow breakdowns, 3 secondary energy counters, 15 diagnostic/debug coordinator sensors).
+
+- All numeric sensors declare `suggested_display_precision` for consistent dashboard rendering.
 - `PARALLEL_UPDATES = 0` — updates are centralised through the coordinator.
-- `entity_category = DIAGNOSTIC` on `battery_temperature` and `spot_price`.
-- `entity_registry_enabled_default = False` on the 7 power-flow breakdown sensors (less commonly needed).
+- Economics and analytics sensors expose helpful `extra_state_attributes` (e.g. `last_period_end`, `tariff_mode`, `value_basis`, `skipped_windows`).
+
+### Button platform (`button.py`)
+
+- **3 diagnostic maintenance buttons** (`ElisaKotiakkuButtonDescription`):
+  - `backfill_energy` — imports last 24 hours of historical windows into energy, economics, and analytics.
+  - `rebuild_economics` — resets and rebuilds economics and analytics from the last 24 hours.
+  - `force_data_refresh` — triggers immediate coordinator refresh outside normal polling.
+- All buttons are `entity_category=DIAGNOSTIC` with `device_class=UPDATE`.
+- `PARALLEL_UPDATES = 1` — only one button operation runs at a time.
+- Errors are wrapped as `HomeAssistantError` with `translation_key` for localised messages.
 
 ### Entity base (`entity.py`)
 
@@ -88,21 +136,27 @@ Gridle API  ──HTTP GET──▶  ElisaKotiakkuApiClient  ──▶  ElisaKot
 - Sets `has_entity_name = True` (entities named via `translation_key` under the device).
 - Single device per config entry (the Kotiakku system).
 
+### Utilities (`util.py`)
+
+- `parse_iso8601()` — safe ISO 8601 parser returning `None` on malformed input.
+- `measurement_duration_hours()` — calculates window duration with a 5-minute fallback.
+
 ### Diagnostics (`diagnostics.py`)
 
-- Dumps config (with API key redacted), latest measurement data, and cumulative energy state.
+- Dumps config (with API key redacted), latest measurement data, cumulative energy state, economics state, and analytics state.
 
 ### Services (`services.yaml`)
 
-- `elisa_kotiakku.backfill_energy` imports historical windows via `async_get_range()`.
-- Supports optional `entry_id`, `start_time`, `end_time`, and `hours` fields.
-- Updates cumulative energy entities without requiring direct database writes.
-- **Registration pattern**: the service is registered once in `async_setup()` (integration level), not per config entry. A guard prevents double-registration if HA reloads the integration without a full restart. This means the service remains available even when all config entries are unloaded — it validates that at least one loaded entry exists at call time.
+Two registered services:
+
+- `elisa_kotiakku.backfill_energy` — imports historical windows via `async_get_range()`. Supports optional `entry_id`, `start_time`, `end_time`, and `hours` fields. Updates energy, economics, and analytics stores.
+- `elisa_kotiakku.rebuild_economics` — resets economics and analytics then replays pricing and analytics from historical data. Does not touch cumulative energy totals.
+- **Registration pattern**: both services are registered once in `async_setup()` (integration level), not per config entry. Guards prevent double-registration if HA reloads the integration. Services validate that at least one loaded entry exists at call time.
 - All service-level validation errors raise `ServiceValidationError` with `translation_domain=DOMAIN` and a `translation_key` so HA renders them as human-readable messages (keys are in `strings.json` under `exceptions`).
 
 ### Startup Backfill Option
 
-- On setup, the integration can automatically run a backfill for the last `N` hours (`startup_backfill_hours` option).
+- On setup, the integration can automatically run a backfill for the last `N` hours (`startup_backfill_hours` option, default 0).
 - This is useful for restoring Energy Dashboard continuity after HA downtime/restarts.
 
 ## API Schema
@@ -144,11 +198,15 @@ Response: JSON array of objects with fields:
 3. **Single device per entry** — one API key = one Kotiakku installation = one HA device.
 4. **Translation-based entity names** — uses `translation_key` so names are translatable and follow HA naming conventions.
 5. **`runtime_data` pattern** — uses the modern `ConfigEntry.runtime_data` (type alias `ElisaKotiakkuConfigEntry`) instead of `hass.data[DOMAIN]` dict.
-6. **Extra state attributes** — `period_start`/`period_end` attached to every sensor so automations can reason about data freshness.
-7. **Secret-safe unique IDs** — config entry identity uses a hash fingerprint, not plain API key text.
+6. **Extra state attributes** — `period_start`/`period_end` attached to measurement sensors; `last_period_end`, `tariff_mode`, `value_basis` on economics/analytics sensors for data-freshness reasoning.
+7. **Secret-safe unique IDs** — config entry identity uses a PBKDF2-HMAC hash fingerprint, not plain API key text.
 8. **Rate-limit-aware polling** — coordinator applies temporary backoff on HTTP 429 and restores default interval after success.
 9. **Energy Dashboard compatibility** — cumulative `kWh` counters are derived from 5-minute average power readings.
-10. **Controlled backfill** — historical backfill runs through an explicit service call, not automatic bulk imports.
+10. **Controlled backfill** — historical backfill runs through an explicit service call or button press, not automatic bulk imports.
+11. **Tariff-signature invalidation** — economics state is discarded when tariff options change, preventing stale pricing data from persisting.
+12. **Three-store persistence** — energy, economics, and analytics each have independent HA storage files, allowing selective rebuilds.
+13. **Display precision** — all sensors declare `suggested_display_precision` so dashboards render values at appropriate decimal places without manual formatting.
+14. **Diagnostic buttons** — maintenance operations (backfill, rebuild, refresh) are exposed as button entities in addition to services, enabling one-tap dashboard access.
 
 ## HA Integration Quality Scale
 
@@ -171,18 +229,18 @@ Implemented rules by tier:
 | Rule | Status | Notes |
 |---|---|---|
 | `config-entry-unloading` | ✅ | `async_unload_platforms` in `async_unload_entry` |
-| `parallel-updates` | ✅ | `PARALLEL_UPDATES = 0` (coordinator-based) |
+| `parallel-updates` | ✅ | `PARALLEL_UPDATES = 0` (sensors), `1` (buttons) |
 | `reauthentication-flow` | ✅ | `async_step_reauth` / `async_step_reauth_confirm` |
 | `reconfigure-flow` | ✅ | `async_step_reconfigure` |
-| `options-flow` | ✅ | `startup_backfill_hours` option |
-| `test-coverage` | ✅ | 120 tests, 97 % coverage across all modules |
+| `options-flow` | ✅ | 16-field options with native selectors (tariff, pricing, analytics, power fee) |
+| `test-coverage` | ✅ | 250 tests, 98 % coverage across all modules |
 
 ### Gold
 | Rule | Status | Notes |
 |---|---|---|
 | `devices` | ✅ | Single device per config entry |
 | `diagnostics` | ✅ | Redacts API key |
-| `entity-category` | ✅ | Diagnostic category on temperature / spot price |
-| `entity-device-class` | ✅ | All sensors have appropriate device classes |
-| `entity-disabled-by-default` | ✅ | 7 flow-breakdown sensors disabled by default |
-| `entity-translations` | ✅ | `translation_key` on all entities |
+| `entity-category` | ✅ | Diagnostic category on temperature, spot price, tariff debug, analytics debug, and buttons |
+| `entity-device-class` | ✅ | All sensors and buttons have appropriate device classes |
+| `entity-disabled-by-default` | ✅ | 25 sensors disabled by default (flow breakdowns, secondary energy, debug/diagnostic) |
+| `entity-translations` | ✅ | `translation_key` on all 63 sensors and 3 buttons |
