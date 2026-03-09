@@ -114,7 +114,7 @@ class ElisaKotiakkuButton(ElisaKotiakkuEntity, ButtonEntity):
         _LOGGER.info(
             "Button backfill processed %s window(s) for entry %s",
             processed,
-            coordinator.config_entry.entry_id,
+            self._attr_unique_id,
         )
 
     async def _async_rebuild_economics(
@@ -138,7 +138,7 @@ class ElisaKotiakkuButton(ElisaKotiakkuEntity, ButtonEntity):
         _LOGGER.info(
             "Button rebuild economics processed %s window(s) for entry %s",
             processed,
-            coordinator.config_entry.entry_id,
+            self._attr_unique_id,
         )
 
     async def _async_force_refresh(
