@@ -69,6 +69,25 @@ cards:
       Entities -> Elisa Kotiakku.
 
   - type: entities
+    title: Battery health and autonomy
+    entities:
+      - entity: sensor.elisa_kotiakku_estimated_battery_health
+      - entity: sensor.elisa_kotiakku_estimated_usable_battery_capacity
+      - entity: sensor.elisa_kotiakku_battery_equivalent_full_cycles
+      - entity: sensor.elisa_kotiakku_self_sufficiency_ratio_30d
+      - entity: sensor.elisa_kotiakku_solar_self_consumption_ratio_30d
+      - entity: sensor.elisa_kotiakku_battery_house_supply_ratio_30d
+      - entity: sensor.elisa_kotiakku_estimated_backup_runtime_hours
+
+  - type: entities
+    title: Maintenance
+    show_header_toggle: false
+    entities:
+      - entity: button.elisa_kotiakku_backfill_energy
+      - entity: button.elisa_kotiakku_rebuild_economics
+      - entity: button.elisa_kotiakku_force_data_refresh
+
+  - type: entities
     title: Diagnostics
     show_header_toggle: false
     entities:

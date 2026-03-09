@@ -255,8 +255,6 @@ class TestCoordinatorUpdate:
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-
         mock_api_client.async_get_latest.side_effect = ElisaKotiakkuApiError(
             "Connection lost"
         )
@@ -273,8 +271,6 @@ class TestCoordinatorUpdate:
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-
         mock_api_client.async_get_latest.side_effect = ElisaKotiakkuRateLimitError(
             retry_after=900
         )
@@ -293,8 +289,6 @@ class TestCoordinatorUpdate:
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-
         mock_api_client.async_get_latest.side_effect = [
             ElisaKotiakkuRateLimitError(retry_after=900),
             SAMPLE_MEASUREMENT,
@@ -914,6 +908,28 @@ class TestEconomicsMath:
             == 0
         )
 
+    async def test_power_peak_tracked_without_fee_config(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Power peak should be reported even when no power fee rule is set."""
+        mock_config_entry.options = {}
+        mock_api_client.async_get_range.return_value = [
+            _measurement_at("2026-01-05T08:00:00+02:00", grid_power_kw=5.0),
+            _measurement_at("2026-01-05T09:00:00+02:00", grid_power_kw=8.5),
+            _measurement_at("2026-01-05T10:00:00+02:00", grid_power_kw=2.0),
+        ]
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+
+        await coordinator.async_backfill_energy("a", "b")
+
+        assert coordinator.get_current_month_power_peak() == 8.5
+        assert coordinator.get_current_month_power_fee_estimate() == 0.0
+
     async def test_monthly_max_power_fee_estimate(
         self,
         mock_hass: MagicMock,
@@ -986,7 +1002,9 @@ class TestEconomicsMath:
 
         await coordinator.async_backfill_energy("a", "b")
 
-        assert coordinator.get_current_month_power_peak() == 9.0
+        # Peak reflects actual max grid import (20 kW at 23:00), not just
+        # the fee-qualifying hours.  Fee estimate still uses only qualifying.
+        assert coordinator.get_current_month_power_peak() == 20.0
         assert coordinator.get_current_month_power_fee_estimate() == 60.0
 
     async def test_backfill_wraps_api_error_as_update_failed(
@@ -995,8 +1013,6 @@ class TestEconomicsMath:
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        from homeassistant.helpers.update_coordinator import UpdateFailed
-
         mock_api_client.async_get_range.side_effect = ElisaKotiakkuApiError("boom")
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry

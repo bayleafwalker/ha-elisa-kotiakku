@@ -67,6 +67,17 @@
     }
   },
   "entity": {
+    "button": {
+      "backfill_energy": {
+        "name": "Täytä energiahistoria"
+      },
+      "rebuild_economics": {
+        "name": "Rakenna talous uudelleen"
+      },
+      "force_data_refresh": {
+        "name": "Pakota tietojen päivitys"
+      }
+    },
     "sensor": {
       "battery_power": {
         "name": "Akun teho"
@@ -262,42 +273,70 @@
   "options": {
     "step": {
       "init": {
-        "title": "Asetukset",
-        "description": "Määritä integraation valinnaiset asetukset.",
+        "title": "Elisa Kotiakku -asetukset",
+        "description": "Määritä akun kapasiteetti, tariffihinnoittelu ja tehomaksuasetukset. Kun valitset tariffiesiasetuksen, siirtomaksut ja tariffitila asetetaan automaattisesti — sinun tarvitsee määrittää vain myyntikatteet, verot ja vientimaksut käsin.",
         "data": {
+          "battery_expected_usable_capacity_kwh": "Akun odotettu käytettävä kapasiteetti (kWh)",
           "startup_backfill_hours": "Käynnistyksen backfill (tuntia)",
-          "tariff_preset": "Tariffiesiasetus",
-          "tariff_mode": "Tariffitila",
-          "import_retailer_margin": "Oston myyntikate",
-          "export_retailer_adjustment": "Myynnin hinnan oikaisu",
-          "grid_import_transfer_fee": "Oston siirtomaksu",
-          "grid_export_transfer_fee": "Myynnin siirtomaksu",
-          "electricity_tax_fee": "Sähkövero",
-          "day_import_retailer_margin": "Päiväoston myyntikate",
-          "night_import_retailer_margin": "Yöoston myyntikate",
-          "day_grid_import_transfer_fee": "Päiväoston siirtomaksu",
-          "night_grid_import_transfer_fee": "Yöoston siirtomaksu",
-          "power_fee_rule": "Tehomaksun sääntö",
-          "power_fee_rate": "Tehomaksun hinta",
-          "battery_expected_usable_capacity_kwh": "Akun odotettu käytettävä kapasiteetti"
+          "tariff_preset": "Siirtotariffin esiasetus",
+          "tariff_mode": "Tariffin hinnoittelutila",
+          "import_retailer_margin": "Oston myyntikate (c/kWh) — kiinteä / spot",
+          "grid_import_transfer_fee": "Oston siirtomaksu (c/kWh) — kiinteä",
+          "day_import_retailer_margin": "Päiväoston myyntikate (c/kWh)",
+          "night_import_retailer_margin": "Yöoston myyntikate (c/kWh)",
+          "day_grid_import_transfer_fee": "Päiväoston siirtomaksu (c/kWh)",
+          "night_grid_import_transfer_fee": "Yöoston siirtomaksu (c/kWh)",
+          "electricity_tax_fee": "Sähkövero (c/kWh)",
+          "export_retailer_adjustment": "Myynnin hinnan oikaisu (c/kWh)",
+          "grid_export_transfer_fee": "Myynnin siirtomaksu (c/kWh)",
+          "power_fee_rule": "Tehomaksun laskentasääntö",
+          "power_fee_rate": "Tehomaksun hinta (EUR/kW/kk)"
         },
         "data_description": {
+          "battery_expected_usable_capacity_kwh": "Akkupaketin käytettävä kapasiteetti kWh:na. Käytetään kuntoarvion, syklilaskennan ja varakäyttöajan perusarvona. Aseta 0 poistaaksesi kapasiteettipohjaiset analytiikat.",
           "startup_backfill_hours": "Kuinka monta tuntia historiallista dataa haetaan automaattisesti käynnistyksen yhteydessä. Aseta 0 poistaaksesi automaattisen backfillin.",
-          "tariff_preset": "Valinnainen päivätty tariffiesiasetus. Esiasetukset asettavat tällä hetkellä siirtopuolen oletukset ja tariffitilan tallennettaessa. Mukana olevat snapshotit kattavat tällä hetkellä Caruna Espoon ja Caruna Oy:n siirtotariffit.",
-          "tariff_mode": "Valitse, käytetäänkö ostossa spot-only-, kiinteää, päivä/yö- vai kausipäivä/yö-hinnoittelua.",
-          "import_retailer_margin": "Spot-hintaan lisättävä oston myyntikate c/kWh. Syötä kotitalouslaskutuksen bruttomääräinen arvo, jos haluat kokonaislukujen vastaavan laskua.",
-          "export_retailer_adjustment": "Spot-hintaan myynnissä sovellettava oikaisu c/kWh. Negatiivinen arvo pienentää myyntikorvausta.",
-          "grid_import_transfer_fee": "Kiinteä oston siirtomaksu c/kWh. Syötä kotitalouslaskutuksen bruttomääräinen arvo tarvittaessa.",
-          "grid_export_transfer_fee": "Myynnin siirtomaksu c/kWh.",
-          "electricity_tax_fee": "Kiinteä ostoon lisättävä sähkövero c/kWh. Syötä kotitalouslaskutuksen bruttomääräinen arvo tarvittaessa.",
-          "day_import_retailer_margin": "Päiväajan oston myyntikate c/kWh päivä/yö-tilassa tai talven päiväjakson kate kausipäivä/yö-tilassa. Syötä kotitalouslaskutuksen bruttomääräinen arvo, jos haluat kokonaislukujen vastaavan laskua.",
-          "night_import_retailer_margin": "Yöajan oston myyntikate c/kWh päivä/yö-tilassa tai muiden aikojen kate kausipäivä/yö-tilassa. Syötä kotitalouslaskutuksen bruttomääräinen arvo, jos haluat kokonaislukujen vastaavan laskua.",
-          "day_grid_import_transfer_fee": "Päiväajan oston siirtomaksu c/kWh päivä/yö-tilassa tai talven päiväjakson siirtomaksu kausipäivä/yö-tilassa. Syötä kotitalouslaskutuksen bruttomääräinen arvo tarvittaessa.",
-          "night_grid_import_transfer_fee": "Yöajan oston siirtomaksu c/kWh päivä/yö-tilassa tai muiden aikojen siirtomaksu kausipäivä/yö-tilassa. Syötä kotitalouslaskutuksen bruttomääräinen arvo tarvittaessa.",
-          "power_fee_rule": "Valitse, miten kuukausittainen tehomaksuarvio lasketaan.",
-          "power_fee_rate": "Kuukausittainen tehomaksu euroina per kelpo kW. Syötä kotitalouslaskutuksen bruttomääräinen arvo tarvittaessa.",
-          "battery_expected_usable_capacity_kwh": "Akun määritetty käytettävä kapasiteetti kWh-yksikössä. Tätä käytetään heuristisen kuntoarvion, ekvivalenttisten syklien ja varakäyttöajan perusarvona. Aseta 0 poistaaksesi kapasiteettipohjaiset analytiikat käytöstä."
+          "tariff_preset": "Valitse verkko-operaattorisi siirtotariffi. Esiasetukset asettavat automaattisesti tariffitilan ja siirtomaksut tallennettaessa. Muut kentät (myyntikatteet, verot, vientimaksut) on määritettävä käsin.",
+          "tariff_mode": "Määrittää ostopuolen hinnoittelurakenteen. Asetetaan automaattisesti esiasetuksella; muuta vain 'Mukautettu'-tilassa. 'Vain spot' käyttää vain spot-hintaa + katetta. 'Kiinteä' lisää yhden siirtomaksun. 'Päivä/Yö' käyttää erillisiä maksuja 07–22 / 22–07. 'Kausipäivä/Yö' käyttää talven päiväaikaa (marras–maalis, ma–la 07–22) vs muut ajat.",
+          "import_retailer_margin": "Spot-hintaan lisättävä myyntikate verkkosähkön ostolle. Käytetään 'Kiinteä'- tai 'Vain spot' -tilassa. Ei aseteta automaattisesti esiasetuksella — määritä aina käsin. Negatiivinen arvo tarkoittaa alennusta.",
+          "grid_import_transfer_fee": "Oston siirtomaksu kiinteässä tilassa. Asetetaan automaattisesti esiasetuksella kun kiinteä esiasetus on valittu (esim. Caruna Yleissiirto → 5,26 c/kWh). Syötä kotitalouslaskutuksen bruttomääräinen arvo.",
+          "day_import_retailer_margin": "Päiväajan oston myyntikate (07–22) päivä/yö-tilassa tai talven päiväajan kate (marras–maalis, ma–la 07–22) kausitilassa. Ei aseteta automaattisesti esiasetuksella — määritä aina käsin.",
+          "night_import_retailer_margin": "Yöajan oston myyntikate (22–07) päivä/yö-tilassa tai muiden aikojen kate kausitilassa. Ei aseteta automaattisesti esiasetuksella — määritä aina käsin.",
+          "day_grid_import_transfer_fee": "Päiväajan oston siirtomaksu (07–22) päivä/yö-tilassa tai talven päiväajan siirtomaksu kausitilassa. Asetetaan automaattisesti esiasetuksella kun päivä/yö- tai kausiesiasetus on valittu.",
+          "night_grid_import_transfer_fee": "Yöajan oston siirtomaksu (22–07) päivä/yö-tilassa tai muiden aikojen siirtomaksu kausitilassa. Asetetaan automaattisesti esiasetuksella kun päivä/yö- tai kausiesiasetus on valittu.",
+          "electricity_tax_fee": "Kiinteä oston sähkövero. Ei aseteta automaattisesti esiasetuksella — määritä aina käsin. Syötä kotitalouslaskutuksen bruttomääräinen arvo.",
+          "export_retailer_adjustment": "Spot-hintaan sovellettava oikaisu myynnissä. Negatiivinen arvo pienentää myyntikorvausta. Ei aseteta automaattisesti esiasetuksella — määritä aina käsin.",
+          "grid_export_transfer_fee": "Myynnin siirtomaksu. Ei aseteta automaattisesti esiasetuksella — määritä aina käsin.",
+          "power_fee_rule": "Menetelmä kuukausittaisen teho(kysyntä)maksun laskemiseksi. Valitse 'Ei käytössä' poistaaksesi tehomaksun seurannan.",
+          "power_fee_rate": "Kuukausittainen tehomaksu per kelpo kW. Ei aseteta automaattisesti esiasetuksella — määritä aina käsin. Syötä kotitalouslaskutuksen bruttomääräinen arvo."
         }
+      }
+    }
+  },
+  "selector": {
+    "tariff_preset": {
+      "options": {
+        "custom": "Mukautettu — määritä kaikki tariffikentät käsin",
+        "caruna_general_2026_01": "Caruna Oy Yleissiirto — kiinteä 5,26 c/kWh (voim. 2026-01)",
+        "caruna_night_2026_01": "Caruna Oy Yösiirto — päivä 5,11 / yö 3,12 c/kWh (voim. 2026-01)",
+        "caruna_night_seasonal_2026_01": "Caruna Oy Kausisiirto — talvipäivä 6,73 / muu 3,23 c/kWh (voim. 2026-01)",
+        "caruna_espoo_general_2026_01": "Caruna Espoo Yleissiirto — kiinteä 4,87 c/kWh (voim. 2026-01)",
+        "caruna_espoo_night_2026_01": "Caruna Espoo Yösiirto — päivä 5,11 / yö 3,12 c/kWh (voim. 2026-01)"
+      }
+    },
+    "tariff_mode": {
+      "options": {
+        "spot_only": "Vain spot — spot-hinta + myyntikate, ei siirtomaksua",
+        "flat": "Kiinteä — yksi siirtomaksu ja myyntikate kaikille tunneille",
+        "day_night": "Päivä / Yö — erilliset maksut 07:00–22:00 ja 22:00–07:00",
+        "seasonal_day_night": "Kausipäivä / Yö — talven päiväaika (marras–maalis, ma–la 07–22) vs muut ajat"
+      }
+    },
+    "power_fee_rule": {
+      "options": {
+        "none": "Ei käytössä — ei tehomaksun seurantaa",
+        "monthly_max_all_hours": "Kuukauden maksimi — suurin yksittäisen tunnin kysyntä",
+        "monthly_top3_all_hours": "Kuukauden 3 suurinta — kolmen suurimman tunnin keskiarvo",
+        "monthly_top3_winter_weekday_daytime": "Kuukauden 3 suurinta talven arkipäivä — marras–maalis, ma–pe 07–22"
       }
     }
   }

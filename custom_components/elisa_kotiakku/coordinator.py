@@ -86,6 +86,7 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         self._power_fee_hour_buckets: dict[str, dict[str, dict[str, float]]] = {}
         self._power_fee_monthly_estimates: dict[str, float] = {}
         self._power_fee_monthly_peaks: dict[str, float] = {}
+        self._grid_import_monthly_peaks: dict[str, float] = {}
         self._baseline_power_fee_hour_buckets: dict[
             str, dict[str, dict[str, float]]
         ] = {}
@@ -168,6 +169,9 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         )
         self._power_fee_monthly_peaks = _load_float_map(
             stored.get("power_fee_monthly_peaks")
+        )
+        self._grid_import_monthly_peaks = _load_float_map(
+            stored.get("grid_import_monthly_peaks")
         )
         self._baseline_power_fee_hour_buckets = _load_hour_bucket_store(
             stored.get("baseline_power_fee_hour_buckets")
@@ -388,11 +392,11 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         )
 
     def get_current_month_power_peak(self) -> float | None:
-        """Return current month's qualifying power peak in kW."""
+        """Return current month's peak grid import power in kW."""
         month_key = self._current_measurement_month_key()
         if month_key is None:
             return None
-        return round(self._power_fee_monthly_peaks.get(month_key, 0.0), 6)
+        return round(self._grid_import_monthly_peaks.get(month_key, 0.0), 6)
 
     def get_current_month_power_fee_estimate(self) -> float | None:
         """Return current month's power fee estimate in EUR."""
@@ -466,6 +470,7 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         self._power_fee_hour_buckets = {}
         self._power_fee_monthly_estimates = {}
         self._power_fee_monthly_peaks = {}
+        self._grid_import_monthly_peaks = {}
         self._baseline_power_fee_hour_buckets = {}
         self._baseline_power_fee_monthly_estimates = {}
         self._attribution_skipped_window_counts = {
@@ -540,6 +545,11 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         grid_export_kw = max(-(measurement.grid_power_kw or 0.0), 0.0)
         grid_import_kwh = grid_import_kw * hours
         grid_export_kwh = grid_export_kw * hours
+
+        # Track peak grid import for the month (always, regardless of fee config)
+        month_key = timestamp.strftime("%Y-%m")
+        if grid_import_kw > self._grid_import_monthly_peaks.get(month_key, 0.0):
+            self._grid_import_monthly_peaks[month_key] = grid_import_kw
 
         purchase_cost = _cost_or_zero(
             rates.import_unit_price_cents_per_kwh, grid_import_kwh
@@ -785,6 +795,9 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
                 "power_fee_hour_buckets": self._power_fee_hour_buckets,
                 "power_fee_monthly_estimates": self._power_fee_monthly_estimates,
                 "power_fee_monthly_peaks": self._power_fee_monthly_peaks,
+                "grid_import_monthly_peaks": (
+                    self._grid_import_monthly_peaks
+                ),
                 "baseline_power_fee_hour_buckets": (
                     self._baseline_power_fee_hour_buckets
                 ),

@@ -94,7 +94,9 @@ async def test_async_setup_entry_sets_runtime_data_and_forwards_platforms(
     coordinator.async_config_entry_first_refresh.assert_awaited_once()
     coordinator.async_backfill_energy.assert_not_awaited()
     assert entry.runtime_data is coordinator
-    mock_forward_setups.assert_awaited_once_with(entry, [Platform.SENSOR])
+    mock_forward_setups.assert_awaited_once_with(
+        entry, [Platform.BUTTON, Platform.SENSOR]
+    )
 
 
 async def test_async_setup_registers_services(hass) -> None:
@@ -161,7 +163,9 @@ async def test_async_unload_entry_unloads_platforms(hass) -> None:
         result = await async_unload_entry(hass, entry)
 
     assert result is True
-    mock_unload_platforms.assert_awaited_once_with(entry, [Platform.SENSOR])
+    mock_unload_platforms.assert_awaited_once_with(
+        entry, [Platform.BUTTON, Platform.SENSOR]
+    )
 
 
 async def test_backfill_service_calls_coordinator(hass) -> None:

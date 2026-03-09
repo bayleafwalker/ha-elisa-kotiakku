@@ -85,6 +85,37 @@ class TestAsyncGetLatest:
 
         assert result is None
 
+    async def test_raises_on_non_list_response(
+        self, mock_aioresponses: aioresponses, api_key: str
+    ) -> None:
+        """Non-list top-level JSON raises ElisaKotiakkuApiError."""
+        mock_aioresponses.get(
+            API_MEASUREMENTS_URL, payload={"unexpected": "object"}
+        )
+
+        async with _test_client_session() as session:
+            client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
+            with pytest.raises(
+                ElisaKotiakkuApiError, match="expected list"
+            ):
+                await client.async_get_latest()
+
+    async def test_raises_on_non_dict_item_in_response(
+        self, mock_aioresponses: aioresponses, api_key: str
+    ) -> None:
+        """List containing a non-dict item raises ElisaKotiakkuApiError."""
+        mock_aioresponses.get(
+            API_MEASUREMENTS_URL,
+            payload=[{"period_start": "a", "period_end": "b"}, "bad"],
+        )
+
+        async with _test_client_session() as session:
+            client = ElisaKotiakkuApiClient(api_key=api_key, session=session)
+            with pytest.raises(
+                ElisaKotiakkuApiError, match="expected object"
+            ):
+                await client.async_get_latest()
+
     async def test_handles_null_optional_fields(
         self, mock_aioresponses: aioresponses, api_key: str
     ) -> None:
