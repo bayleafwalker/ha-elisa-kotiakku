@@ -60,6 +60,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         value_fn=lambda d: d.battery_power_kw,
     ),
     ElisaKotiakkuSensorDescription(
@@ -68,6 +69,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda d: d.state_of_charge_percent,
     ),
     ElisaKotiakkuSensorDescription(
@@ -76,6 +78,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda d: d.battery_temperature_celsius,
     ),
@@ -85,6 +88,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         value_fn=lambda d: d.solar_power_kw,
     ),
     ElisaKotiakkuSensorDescription(
@@ -93,6 +97,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         value_fn=lambda d: d.grid_power_kw,
     ),
     ElisaKotiakkuSensorDescription(
@@ -101,6 +106,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         value_fn=lambda d: d.house_power_kw,
     ),
     ElisaKotiakkuSensorDescription(
@@ -109,6 +115,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.solar_to_house_kw,
     ),
@@ -118,6 +125,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.solar_to_battery_kw,
     ),
@@ -127,6 +135,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.solar_to_grid_kw,
     ),
@@ -136,6 +145,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.grid_to_house_kw,
     ),
@@ -145,6 +155,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.grid_to_battery_kw,
     ),
@@ -154,6 +165,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.battery_to_house_kw,
     ),
@@ -163,6 +175,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         entity_registry_enabled_default=False,
         value_fn=lambda d: d.battery_to_grid_kw,
     ),
@@ -171,6 +184,7 @@ SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuSensorDescription, ...] = (
         translation_key="spot_price",
         native_unit_of_measurement=UNIT_CENTS_PER_KWH,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=2,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda d: d.spot_price_cents_per_kwh,
     ),
@@ -183,6 +197,7 @@ ENERGY_SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuEnergySensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=3,
     ),
     ElisaKotiakkuEnergySensorDescription(
         key="grid_export_energy",
@@ -190,6 +205,7 @@ ENERGY_SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuEnergySensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=3,
     ),
     ElisaKotiakkuEnergySensorDescription(
         key="solar_production_energy",
@@ -197,6 +213,7 @@ ENERGY_SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuEnergySensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=3,
     ),
     ElisaKotiakkuEnergySensorDescription(
         key="house_consumption_energy",
@@ -204,6 +221,7 @@ ENERGY_SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuEnergySensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=3,
         entity_registry_enabled_default=False,
     ),
     ElisaKotiakkuEnergySensorDescription(
@@ -212,6 +230,7 @@ ENERGY_SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuEnergySensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=3,
         entity_registry_enabled_default=False,
     ),
     ElisaKotiakkuEnergySensorDescription(
@@ -220,6 +239,7 @@ ENERGY_SENSOR_DESCRIPTIONS: tuple[ElisaKotiakkuEnergySensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=3,
         entity_registry_enabled_default=False,
     ),
 )
@@ -260,6 +280,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="active_import_retailer_margin",
         native_unit_of_measurement=UNIT_CENTS_PER_KWH,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=2,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=lambda c: _active_rate_value(
@@ -271,6 +292,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="active_import_transfer_fee",
         native_unit_of_measurement=UNIT_CENTS_PER_KWH,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=2,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=lambda c: _active_rate_value(
@@ -282,6 +304,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="active_export_retailer_adjustment",
         native_unit_of_measurement=UNIT_CENTS_PER_KWH,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=2,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=lambda c: _active_rate_value(
@@ -293,6 +316,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="active_export_transfer_fee",
         native_unit_of_measurement=UNIT_CENTS_PER_KWH,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=2,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=lambda c: _active_rate_value(
@@ -304,6 +328,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="active_electricity_tax_fee",
         native_unit_of_measurement=UNIT_CENTS_PER_KWH,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=2,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         value_fn=lambda c: _active_rate_value(
@@ -315,6 +340,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="active_import_unit_price",
         native_unit_of_measurement=UNIT_CENTS_PER_KWH,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=2,
         value_fn=lambda c: _active_rate_value(
             c, "import_unit_price_cents_per_kwh"
         ),
@@ -324,6 +350,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="active_export_unit_price",
         native_unit_of_measurement=UNIT_CENTS_PER_KWH,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=2,
         value_fn=lambda c: _active_rate_value(
             c, "export_unit_price_cents_per_kwh"
         ),
@@ -333,6 +360,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_purchase_cost",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("purchase_cost"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -340,6 +368,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_import_transfer_cost",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("import_transfer_cost"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -347,6 +376,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_electricity_tax_cost",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("electricity_tax_cost"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -354,6 +384,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_export_revenue",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("export_revenue"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -361,6 +392,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_export_transfer_cost",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("export_transfer_cost"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -368,6 +400,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_power_fee_cost",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("power_fee_cost"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -375,6 +408,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_net_site_electricity_cost",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("net_site_cost"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -382,6 +416,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_battery_savings",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("battery_savings"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -389,6 +424,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_solar_used_in_house_value",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("solar_used_in_house_value"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -396,6 +432,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_solar_export_net_value",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("solar_export_net_value"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -403,6 +440,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="total_battery_house_supply_value",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_economics_total("battery_house_supply_value"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -411,6 +449,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
+        suggested_display_precision=3,
         value_fn=lambda c: c.get_analytics_value("total_avoided_grid_import_energy"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -419,6 +458,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
         value_fn=lambda c: c.get_current_month_power_peak(),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -426,6 +466,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="current_month_power_fee_estimate",
         native_unit_of_measurement=CURRENCY_EURO,
         device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=4,
         value_fn=lambda c: c.get_current_month_power_fee_estimate(),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -434,6 +475,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
         value_fn=lambda c: c.get_analytics_value(
             "estimated_usable_battery_capacity"
         ),
@@ -444,6 +486,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value("estimated_battery_health"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -451,6 +494,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="battery_equivalent_full_cycles",
         native_unit_of_measurement=UNIT_CYCLES,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value(
             "battery_equivalent_full_cycles"
         ),
@@ -461,6 +505,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value(
             "battery_temperature_average_30d"
         ),
@@ -470,6 +515,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="battery_high_temperature_hours_30d",
         native_unit_of_measurement=UnitOfTime.HOURS,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value(
             "battery_high_temperature_hours_30d"
         ),
@@ -479,6 +525,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="battery_low_soc_hours_30d",
         native_unit_of_measurement=UnitOfTime.HOURS,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value("battery_low_soc_hours_30d"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -486,6 +533,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="battery_high_soc_hours_30d",
         native_unit_of_measurement=UnitOfTime.HOURS,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value("battery_high_soc_hours_30d"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -493,6 +541,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="self_sufficiency_ratio_30d",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value("self_sufficiency_ratio_30d"),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
@@ -500,6 +549,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="solar_self_consumption_ratio_30d",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value(
             "solar_self_consumption_ratio_30d"
         ),
@@ -509,6 +559,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="battery_house_supply_ratio_30d",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value(
             "battery_house_supply_ratio_30d"
         ),
@@ -518,6 +569,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="battery_charge_from_solar_ratio_30d",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value(
             "battery_charge_from_solar_ratio_30d"
         ),
@@ -527,6 +579,7 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         translation_key="estimated_backup_runtime_hours",
         native_unit_of_measurement=UnitOfTime.HOURS,
         state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
         value_fn=lambda c: c.get_analytics_value(
             "estimated_backup_runtime_hours"
         ),
