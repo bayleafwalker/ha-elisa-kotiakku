@@ -585,19 +585,8 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
     ),
 )
 
-_ANALYTICS_SENSOR_KEYS = {
-    "estimated_usable_battery_capacity",
-    "estimated_battery_health",
+_ANALYTICS_NAMED_KEYS = {
     "battery_equivalent_full_cycles",
-    "battery_temperature_average_30d",
-    "battery_high_temperature_hours_30d",
-    "battery_low_soc_hours_30d",
-    "battery_high_soc_hours_30d",
-    "self_sufficiency_ratio_30d",
-    "solar_self_consumption_ratio_30d",
-    "battery_house_supply_ratio_30d",
-    "battery_charge_from_solar_ratio_30d",
-    "estimated_backup_runtime_hours",
     "total_avoided_grid_import_energy",
     "usable_capacity_candidate_count",
     "analytics_processed_periods",
@@ -611,6 +600,15 @@ _COORDINATOR_CONTEXT_FREE_KEYS = {
     "configured_power_fee_rule",
 }
 
+_ANALYTICS_SENSOR_KEYS = {
+    desc.key
+    for desc in COORDINATOR_SENSOR_DESCRIPTIONS
+    if (
+        desc.key.startswith("estimated_")
+        or desc.key.endswith("_30d")
+        or desc.key in _ANALYTICS_NAMED_KEYS
+    )
+}
 _ECONOMICS_SENSOR_KEYS = {
     desc.key
     for desc in COORDINATOR_SENSOR_DESCRIPTIONS

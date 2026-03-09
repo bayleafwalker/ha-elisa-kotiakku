@@ -411,6 +411,9 @@ def _is_day_period(timestamp: datetime) -> bool:
 
 def _is_seasonal_day_period(timestamp: datetime) -> bool:
     """Return True for Caruna-style winter daytime seasonal pricing."""
+    # Seasonal transfer pricing follows the bundled tariff snapshot rules, which
+    # include Saturdays. This intentionally differs from the power-fee helper,
+    # where weekday-only qualifying hours reflect a separate DSO demand rule.
     return (
         timestamp.month in _WINTER_MONTHS
         and timestamp.weekday() < 6

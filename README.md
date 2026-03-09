@@ -38,6 +38,14 @@ Custom Home Assistant integration for [Elisa Kotiakku](https://elisa.fi/kotiakku
 4. Search for **Elisa Kotiakku** and install.
 5. Restart Home Assistant.
 
+### Upgrading With HACS
+
+- Update the integration in HACS and restart Home Assistant after the download completes.
+- Review new options after upgrading. Recent releases added tariff presets, electricity-tax input, power-fee estimation, and battery analytics baseline settings.
+- Review newly added entities in the entity registry. Several debug and diagnostic entities are disabled by default.
+- If you change tariff inputs after upgrade, run `elisa_kotiakku.rebuild_economics` if you want economics and analytics totals replayed from historical data.
+- Bundled tariff presets are dated snapshots, not live tariff feeds. Confirm the preset still matches your contract before relying on it long-term.
+
 ### Manual
 
 1. Copy `custom_components/elisa_kotiakku` into `config/custom_components/`.
