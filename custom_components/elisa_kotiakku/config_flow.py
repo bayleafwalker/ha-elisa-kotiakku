@@ -24,11 +24,43 @@ from .api import (
 )
 from .const import (
     CONF_API_KEY,
+    CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+    CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
+    CONF_DAY_IMPORT_RETAILER_MARGIN,
+    CONF_ELECTRICITY_TAX_FEE,
+    CONF_EXPORT_RETAILER_ADJUSTMENT,
+    CONF_GRID_EXPORT_TRANSFER_FEE,
+    CONF_GRID_IMPORT_TRANSFER_FEE,
+    CONF_IMPORT_RETAILER_MARGIN,
+    CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE,
+    CONF_NIGHT_IMPORT_RETAILER_MARGIN,
+    CONF_POWER_FEE_RATE,
+    CONF_POWER_FEE_RULE,
     CONF_STARTUP_BACKFILL_HOURS,
+    CONF_TARIFF_MODE,
+    CONF_TARIFF_PRESET,
+    DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+    DEFAULT_DAY_GRID_IMPORT_TRANSFER_FEE,
+    DEFAULT_DAY_IMPORT_RETAILER_MARGIN,
+    DEFAULT_ELECTRICITY_TAX_FEE,
+    DEFAULT_EXPORT_RETAILER_ADJUSTMENT,
+    DEFAULT_GRID_EXPORT_TRANSFER_FEE,
+    DEFAULT_GRID_IMPORT_TRANSFER_FEE,
+    DEFAULT_IMPORT_RETAILER_MARGIN,
+    DEFAULT_NIGHT_GRID_IMPORT_TRANSFER_FEE,
+    DEFAULT_NIGHT_IMPORT_RETAILER_MARGIN,
+    DEFAULT_POWER_FEE_RATE,
+    DEFAULT_POWER_FEE_RULE,
     DEFAULT_STARTUP_BACKFILL_HOURS,
+    DEFAULT_TARIFF_MODE,
+    DEFAULT_TARIFF_PRESET,
     DOMAIN,
     MAX_BACKFILL_HOURS,
+    POWER_FEE_RULES,
+    TARIFF_MODES,
+    TARIFF_PRESETS,
 )
+from .tariff import normalize_tariff_options
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,16 +87,171 @@ STEP_RECONFIGURE_DATA_SCHEMA = vol.Schema(
 )
 
 
-def _options_data_schema(startup_backfill_hours: int) -> vol.Schema:
+def _options_data_schema(options: dict[str, Any]) -> vol.Schema:
     """Return options form schema with current values as defaults."""
     return vol.Schema(
         {
             vol.Required(
                 CONF_STARTUP_BACKFILL_HOURS,
-                default=startup_backfill_hours,
+                default=options[CONF_STARTUP_BACKFILL_HOURS],
             ): vol.All(int, vol.Range(min=0, max=MAX_BACKFILL_HOURS)),
+            vol.Required(
+                CONF_TARIFF_PRESET,
+                default=options[CONF_TARIFF_PRESET],
+            ): vol.In(TARIFF_PRESETS),
+            vol.Required(
+                CONF_TARIFF_MODE,
+                default=options[CONF_TARIFF_MODE],
+            ): vol.In(TARIFF_MODES),
+            vol.Required(
+                CONF_IMPORT_RETAILER_MARGIN,
+                default=options[CONF_IMPORT_RETAILER_MARGIN],
+            ): vol.Coerce(float),
+            vol.Required(
+                CONF_EXPORT_RETAILER_ADJUSTMENT,
+                default=options[CONF_EXPORT_RETAILER_ADJUSTMENT],
+            ): vol.Coerce(float),
+            vol.Required(
+                CONF_GRID_IMPORT_TRANSFER_FEE,
+                default=options[CONF_GRID_IMPORT_TRANSFER_FEE],
+            ): vol.Coerce(float),
+            vol.Required(
+                CONF_GRID_EXPORT_TRANSFER_FEE,
+                default=options[CONF_GRID_EXPORT_TRANSFER_FEE],
+            ): vol.Coerce(float),
+            vol.Required(
+                CONF_ELECTRICITY_TAX_FEE,
+                default=options[CONF_ELECTRICITY_TAX_FEE],
+            ): vol.All(vol.Coerce(float), vol.Range(min=0)),
+            vol.Required(
+                CONF_DAY_IMPORT_RETAILER_MARGIN,
+                default=options[CONF_DAY_IMPORT_RETAILER_MARGIN],
+            ): vol.Coerce(float),
+            vol.Required(
+                CONF_NIGHT_IMPORT_RETAILER_MARGIN,
+                default=options[CONF_NIGHT_IMPORT_RETAILER_MARGIN],
+            ): vol.Coerce(float),
+            vol.Required(
+                CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
+                default=options[CONF_DAY_GRID_IMPORT_TRANSFER_FEE],
+            ): vol.Coerce(float),
+            vol.Required(
+                CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE,
+                default=options[CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE],
+            ): vol.Coerce(float),
+            vol.Required(
+                CONF_POWER_FEE_RULE,
+                default=options[CONF_POWER_FEE_RULE],
+            ): vol.In(POWER_FEE_RULES),
+            vol.Required(
+                CONF_POWER_FEE_RATE,
+                default=options[CONF_POWER_FEE_RATE],
+            ): vol.All(vol.Coerce(float), vol.Range(min=0)),
+            vol.Required(
+                CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+                default=options[CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH],
+            ): vol.All(vol.Coerce(float), vol.Range(min=0)),
         }
     )
+
+
+def _default_options(options: Mapping[str, Any]) -> dict[str, Any]:
+    """Return normalized options with defaults applied."""
+    normalized = {
+        CONF_STARTUP_BACKFILL_HOURS: int(
+            options.get(
+                CONF_STARTUP_BACKFILL_HOURS,
+                DEFAULT_STARTUP_BACKFILL_HOURS,
+            )
+        ),
+        CONF_TARIFF_PRESET: str(
+            options.get(CONF_TARIFF_PRESET, DEFAULT_TARIFF_PRESET)
+        ),
+        CONF_TARIFF_MODE: str(options.get(CONF_TARIFF_MODE, DEFAULT_TARIFF_MODE)),
+        CONF_IMPORT_RETAILER_MARGIN: float(
+            options.get(
+                CONF_IMPORT_RETAILER_MARGIN,
+                DEFAULT_IMPORT_RETAILER_MARGIN,
+            )
+        ),
+        CONF_EXPORT_RETAILER_ADJUSTMENT: float(
+            options.get(
+                CONF_EXPORT_RETAILER_ADJUSTMENT,
+                DEFAULT_EXPORT_RETAILER_ADJUSTMENT,
+            )
+        ),
+        CONF_GRID_IMPORT_TRANSFER_FEE: float(
+            options.get(
+                CONF_GRID_IMPORT_TRANSFER_FEE,
+                DEFAULT_GRID_IMPORT_TRANSFER_FEE,
+            )
+        ),
+        CONF_GRID_EXPORT_TRANSFER_FEE: float(
+            options.get(
+                CONF_GRID_EXPORT_TRANSFER_FEE,
+                DEFAULT_GRID_EXPORT_TRANSFER_FEE,
+            )
+        ),
+        CONF_ELECTRICITY_TAX_FEE: float(
+            options.get(
+                CONF_ELECTRICITY_TAX_FEE,
+                DEFAULT_ELECTRICITY_TAX_FEE,
+            )
+        ),
+        CONF_DAY_IMPORT_RETAILER_MARGIN: float(
+            options.get(
+                CONF_DAY_IMPORT_RETAILER_MARGIN,
+                DEFAULT_DAY_IMPORT_RETAILER_MARGIN,
+            )
+        ),
+        CONF_NIGHT_IMPORT_RETAILER_MARGIN: float(
+            options.get(
+                CONF_NIGHT_IMPORT_RETAILER_MARGIN,
+                DEFAULT_NIGHT_IMPORT_RETAILER_MARGIN,
+            )
+        ),
+        CONF_DAY_GRID_IMPORT_TRANSFER_FEE: float(
+            options.get(
+                CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
+                DEFAULT_DAY_GRID_IMPORT_TRANSFER_FEE,
+            )
+        ),
+        CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE: float(
+            options.get(
+                CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE,
+                DEFAULT_NIGHT_GRID_IMPORT_TRANSFER_FEE,
+            )
+        ),
+        CONF_POWER_FEE_RULE: str(
+            options.get(CONF_POWER_FEE_RULE, DEFAULT_POWER_FEE_RULE)
+        ),
+        CONF_POWER_FEE_RATE: float(
+            options.get(CONF_POWER_FEE_RATE, DEFAULT_POWER_FEE_RATE)
+        ),
+        CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: float(
+            options.get(
+                CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+                DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+            )
+        ),
+    }
+    return normalize_tariff_options(normalized)
+
+
+def _validate_options_data(options: dict[str, Any]) -> dict[str, str]:
+    """Validate cross-field tariff options."""
+    errors: dict[str, str] = {}
+
+    non_negative_fields = (
+        CONF_GRID_IMPORT_TRANSFER_FEE,
+        CONF_GRID_EXPORT_TRANSFER_FEE,
+        CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
+        CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE,
+    )
+    if any(float(options[field]) < 0 for field in non_negative_fields):
+        errors["base"] = "invalid_tariff_value"
+
+    return errors
 
 
 class ElisaKotiakkuConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -277,16 +464,22 @@ class ElisaKotiakkuOptionsFlow(OptionsFlow):
         user_input: dict[str, Any] | None = None,
     ) -> ConfigFlowResult:
         """Manage integration options."""
+        current_options = _default_options(self._config_entry.options)
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            try:
+                validated_input = _options_data_schema(current_options)(user_input)
+            except vol.Invalid:
+                errors = {"base": "invalid_tariff_value"}
+            else:
+                normalized = _default_options(validated_input)
+                errors = _validate_options_data(normalized)
+                if not errors:
+                    return self.async_create_entry(title="", data=normalized)
+        else:
+            errors = {}
 
-        current_startup_hours = int(
-            self._config_entry.options.get(
-                CONF_STARTUP_BACKFILL_HOURS,
-                DEFAULT_STARTUP_BACKFILL_HOURS,
-            )
-        )
         return self.async_show_form(
             step_id="init",
-            data_schema=_options_data_schema(current_startup_hours),
+            data_schema=_options_data_schema(current_options),
+            errors=errors,
         )

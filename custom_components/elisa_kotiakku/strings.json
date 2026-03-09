@@ -34,7 +34,8 @@
     },
     "error": {
       "invalid_auth": "Invalid API key. Please check your key and try again.",
-      "cannot_connect": "Unable to connect to the Kotiakku API. Please try again later."
+      "cannot_connect": "Unable to connect to the Kotiakku API. Please try again later.",
+      "invalid_tariff_value": "Tariff values must be valid for the selected pricing mode."
     },
     "abort": {
       "already_configured": "This API key is already configured.",
@@ -109,6 +110,135 @@
       "spot_price": {
         "name": "Spot price"
       },
+      "configured_tariff_preset": {
+        "name": "Configured tariff preset"
+      },
+      "active_tariff_mode": {
+        "name": "Active tariff mode"
+      },
+      "active_tariff_period": {
+        "name": "Active tariff period"
+      },
+      "configured_power_fee_rule": {
+        "name": "Configured power fee rule"
+      },
+      "active_import_retailer_margin": {
+        "name": "Active import retailer margin"
+      },
+      "active_import_transfer_fee": {
+        "name": "Active import transfer fee"
+      },
+      "active_electricity_tax_fee": {
+        "name": "Active electricity tax fee"
+      },
+      "active_export_retailer_adjustment": {
+        "name": "Active export retailer adjustment"
+      },
+      "active_export_transfer_fee": {
+        "name": "Active export transfer fee"
+      },
+      "active_import_unit_price": {
+        "name": "Active import unit price"
+      },
+      "active_export_unit_price": {
+        "name": "Active export unit price"
+      },
+      "total_purchase_cost": {
+        "name": "Total purchase cost"
+      },
+      "total_import_transfer_cost": {
+        "name": "Total import transfer cost"
+      },
+      "total_electricity_tax_cost": {
+        "name": "Total electricity tax cost"
+      },
+      "total_export_revenue": {
+        "name": "Total export revenue"
+      },
+      "total_export_transfer_cost": {
+        "name": "Total export transfer cost"
+      },
+      "total_power_fee_cost": {
+        "name": "Total power fee cost"
+      },
+      "total_net_site_electricity_cost": {
+        "name": "Total net site electricity cost"
+      },
+      "total_battery_savings": {
+        "name": "Total battery savings"
+      },
+      "total_solar_used_in_house_value": {
+        "name": "Total solar used in house value"
+      },
+      "total_solar_export_net_value": {
+        "name": "Total solar export net value"
+      },
+      "total_battery_house_supply_value": {
+        "name": "Total battery house supply value"
+      },
+      "total_avoided_grid_import_energy": {
+        "name": "Total avoided grid import energy"
+      },
+      "current_month_power_peak": {
+        "name": "Current month power peak"
+      },
+      "current_month_power_fee_estimate": {
+        "name": "Current month power fee estimate"
+      },
+      "estimated_usable_battery_capacity": {
+        "name": "Estimated usable battery capacity"
+      },
+      "estimated_battery_health": {
+        "name": "Estimated battery health"
+      },
+      "battery_equivalent_full_cycles": {
+        "name": "Battery equivalent full cycles"
+      },
+      "battery_temperature_average_30d": {
+        "name": "Battery temperature average 30d"
+      },
+      "battery_high_temperature_hours_30d": {
+        "name": "Battery high temperature hours 30d"
+      },
+      "battery_low_soc_hours_30d": {
+        "name": "Battery low SoC hours 30d"
+      },
+      "battery_high_soc_hours_30d": {
+        "name": "Battery high SoC hours 30d"
+      },
+      "self_sufficiency_ratio_30d": {
+        "name": "Self-sufficiency ratio 30d"
+      },
+      "solar_self_consumption_ratio_30d": {
+        "name": "Solar self-consumption ratio 30d"
+      },
+      "battery_house_supply_ratio_30d": {
+        "name": "Battery house supply ratio 30d"
+      },
+      "battery_charge_from_solar_ratio_30d": {
+        "name": "Battery charge from solar ratio 30d"
+      },
+      "estimated_backup_runtime_hours": {
+        "name": "Estimated backup runtime"
+      },
+      "usable_capacity_candidate_count": {
+        "name": "Usable capacity candidate count"
+      },
+      "analytics_processed_periods": {
+        "name": "Analytics processed periods"
+      },
+      "analytics_total_day_buckets": {
+        "name": "Analytics total day buckets"
+      },
+      "analytics_rolling_day_buckets": {
+        "name": "Analytics rolling day buckets"
+      },
+      "skipped_savings_windows": {
+        "name": "Skipped savings windows"
+      },
+      "economics_processed_periods": {
+        "name": "Economics processed periods"
+      },
       "grid_import_energy": {
         "name": "Grid import energy"
       },
@@ -135,10 +265,38 @@
         "title": "Options",
         "description": "Configure optional integration behavior.",
         "data": {
-          "startup_backfill_hours": "Startup backfill hours"
+          "startup_backfill_hours": "Startup backfill hours",
+          "tariff_preset": "Tariff preset",
+          "tariff_mode": "Tariff mode",
+          "import_retailer_margin": "Import retailer margin",
+          "export_retailer_adjustment": "Export retailer adjustment",
+          "grid_import_transfer_fee": "Grid import transfer fee",
+          "grid_export_transfer_fee": "Grid export transfer fee",
+          "electricity_tax_fee": "Electricity tax fee",
+          "day_import_retailer_margin": "Day import retailer margin",
+          "night_import_retailer_margin": "Night import retailer margin",
+          "day_grid_import_transfer_fee": "Day grid import transfer fee",
+          "night_grid_import_transfer_fee": "Night grid import transfer fee",
+          "power_fee_rule": "Power fee rule",
+          "power_fee_rate": "Power fee rate",
+          "battery_expected_usable_capacity_kwh": "Expected usable battery capacity"
         },
         "data_description": {
-          "startup_backfill_hours": "How many hours of historical data to import automatically on startup. Set to 0 to disable automatic startup backfill."
+          "startup_backfill_hours": "How many hours of historical data to import automatically on startup. Set to 0 to disable automatic startup backfill.",
+          "tariff_preset": "Optional dated tariff preset. Presets currently apply transfer-side defaults and tariff mode when saved. Bundled snapshots currently cover Caruna Espoo and Caruna Oy transfer tariffs.",
+          "tariff_mode": "Select whether import-side margins and transfer fees use spot-only, flat, day/night, or seasonal day/night pricing.",
+          "import_retailer_margin": "Retailer margin added to spot price for imports in c/kWh. Enter the household-billing gross value you want reflected in the totals.",
+          "export_retailer_adjustment": "Adjustment applied to spot price for exports in c/kWh. Negative values reduce export compensation.",
+          "grid_import_transfer_fee": "Flat grid transfer fee for imports in c/kWh. Enter the household-billing gross value if applicable.",
+          "grid_export_transfer_fee": "Grid transfer fee for exports in c/kWh.",
+          "electricity_tax_fee": "Fixed electricity tax applied to imports in c/kWh. Enter the household-billing gross value if applicable.",
+          "day_import_retailer_margin": "Daytime retailer margin for imports in c/kWh when tariff mode is day/night, or the winter daytime margin when tariff mode is seasonal day/night. Enter the household-billing gross value you want reflected in the totals.",
+          "night_import_retailer_margin": "Nighttime retailer margin for imports in c/kWh when tariff mode is day/night, or the other-times margin when tariff mode is seasonal day/night. Enter the household-billing gross value you want reflected in the totals.",
+          "day_grid_import_transfer_fee": "Daytime grid transfer fee for imports in c/kWh when tariff mode is day/night, or the winter daytime fee when tariff mode is seasonal day/night. Enter the household-billing gross value if applicable.",
+          "night_grid_import_transfer_fee": "Nighttime grid transfer fee for imports in c/kWh when tariff mode is day/night, or the other-times fee when tariff mode is seasonal day/night. Enter the household-billing gross value if applicable.",
+          "power_fee_rule": "Select how the estimated monthly power fee is calculated.",
+          "power_fee_rate": "Monthly power fee rate in EUR per qualifying kW. Enter the household-billing gross value if applicable.",
+          "battery_expected_usable_capacity_kwh": "Configured usable battery capacity in kWh used as the baseline for heuristic health, cycle, and backup-runtime estimates. Set to 0 to disable capacity-based analytics."
         }
       }
     }

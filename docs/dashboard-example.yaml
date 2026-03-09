@@ -13,13 +13,34 @@ cards:
       red: 0
 
   - type: entities
-    title: Current power
+    title: Current power and price
     entities:
       - entity: sensor.elisa_kotiakku_battery_power
       - entity: sensor.elisa_kotiakku_solar_power
       - entity: sensor.elisa_kotiakku_grid_power
       - entity: sensor.elisa_kotiakku_house_power
       - entity: sensor.elisa_kotiakku_spot_price
+      - entity: sensor.elisa_kotiakku_active_import_unit_price
+      - entity: sensor.elisa_kotiakku_active_export_unit_price
+
+  - type: entities
+    title: Economics
+    entities:
+      - entity: sensor.elisa_kotiakku_total_net_site_electricity_cost
+      - entity: sensor.elisa_kotiakku_total_battery_savings
+      - entity: sensor.elisa_kotiakku_total_electricity_tax_cost
+      - entity: sensor.elisa_kotiakku_total_solar_used_in_house_value
+      - entity: sensor.elisa_kotiakku_total_solar_export_net_value
+      - entity: sensor.elisa_kotiakku_total_battery_house_supply_value
+      - entity: sensor.elisa_kotiakku_total_avoided_grid_import_energy
+      - entity: sensor.elisa_kotiakku_current_month_power_peak
+      - entity: sensor.elisa_kotiakku_current_month_power_fee_estimate
+
+  - type: markdown
+    content: >
+      `Total battery house supply value` is a gross avoided-import value.
+      It is not the same as `Total battery savings`, which still reflects the
+      wider no-battery baseline including export and power-fee effects.
 
   - type: history-graph
     title: Power trend (24h)
@@ -41,3 +62,19 @@ cards:
       - entity: sensor.elisa_kotiakku_grid_import_energy
       - entity: sensor.elisa_kotiakku_grid_export_energy
       - entity: sensor.elisa_kotiakku_solar_production_energy
+
+  - type: markdown
+    content: >
+      Enable disabled-by-default diagnostics from Settings -> Devices & Services ->
+      Entities -> Elisa Kotiakku.
+
+  - type: entities
+    title: Diagnostics
+    show_header_toggle: false
+    entities:
+      - entity: sensor.elisa_kotiakku_configured_tariff_preset
+      - entity: sensor.elisa_kotiakku_active_tariff_mode
+      - entity: sensor.elisa_kotiakku_active_tariff_period
+      - entity: sensor.elisa_kotiakku_configured_power_fee_rule
+      - entity: sensor.elisa_kotiakku_active_electricity_tax_fee
+      - entity: sensor.elisa_kotiakku_skipped_savings_windows

@@ -34,7 +34,8 @@
     },
     "error": {
       "invalid_auth": "Virheellinen API-avain. Tarkista avain ja yritä uudelleen.",
-      "cannot_connect": "Yhteyttä Kotiakku API:in ei saatu. Yritä myöhemmin uudelleen."
+      "cannot_connect": "Yhteyttä Kotiakku API:in ei saatu. Yritä myöhemmin uudelleen.",
+      "invalid_tariff_value": "Tariffiarvojen on oltava valitulle hinnoittelutilalle kelvollisia."
     },
     "abort": {
       "already_configured": "Tämä API-avain on jo määritetty.",
@@ -109,6 +110,135 @@
       "spot_price": {
         "name": "Spot-hinta"
       },
+      "configured_tariff_preset": {
+        "name": "Määritetty tariffiesiasetus"
+      },
+      "active_tariff_mode": {
+        "name": "Aktiivinen tariffitila"
+      },
+      "active_tariff_period": {
+        "name": "Aktiivinen tariffijakso"
+      },
+      "configured_power_fee_rule": {
+        "name": "Määritetty tehomaksusääntö"
+      },
+      "active_import_retailer_margin": {
+        "name": "Aktiivinen oston myyntikate"
+      },
+      "active_import_transfer_fee": {
+        "name": "Aktiivinen oston siirtomaksu"
+      },
+      "active_electricity_tax_fee": {
+        "name": "Aktiivinen sähkövero"
+      },
+      "active_export_retailer_adjustment": {
+        "name": "Aktiivinen myynnin hinnan oikaisu"
+      },
+      "active_export_transfer_fee": {
+        "name": "Aktiivinen myynnin siirtomaksu"
+      },
+      "active_import_unit_price": {
+        "name": "Aktiivinen oston yksikköhinta"
+      },
+      "active_export_unit_price": {
+        "name": "Aktiivinen myynnin yksikköhinta"
+      },
+      "total_purchase_cost": {
+        "name": "Kokonaisostokustannus"
+      },
+      "total_import_transfer_cost": {
+        "name": "Kokonaisoston siirtokustannus"
+      },
+      "total_electricity_tax_cost": {
+        "name": "Kokonaissähköverokustannus"
+      },
+      "total_export_revenue": {
+        "name": "Kokonaismyyntituotto"
+      },
+      "total_export_transfer_cost": {
+        "name": "Kokonaismyynnin siirtokustannus"
+      },
+      "total_power_fee_cost": {
+        "name": "Kokonaistehomaksu"
+      },
+      "total_net_site_electricity_cost": {
+        "name": "Kokonaisnettosähkökustannus"
+      },
+      "total_battery_savings": {
+        "name": "Akun kokonaissäästö"
+      },
+      "total_solar_used_in_house_value": {
+        "name": "Aurinkosähkön talokäytön kokonaisarvo"
+      },
+      "total_solar_export_net_value": {
+        "name": "Aurinkosähkön verkkomyynnin nettoarvo"
+      },
+      "total_battery_house_supply_value": {
+        "name": "Akun talosyötön kokonaisarvo"
+      },
+      "total_avoided_grid_import_energy": {
+        "name": "Vältetyn verkko-oston kokonaisenergia"
+      },
+      "current_month_power_peak": {
+        "name": "Kuluvan kuukauden tehopiikki"
+      },
+      "current_month_power_fee_estimate": {
+        "name": "Kuluvan kuukauden tehomaksuarvio"
+      },
+      "estimated_usable_battery_capacity": {
+        "name": "Akun arvioitu käytettävä kapasiteetti"
+      },
+      "estimated_battery_health": {
+        "name": "Akun arvioitu kunto"
+      },
+      "battery_equivalent_full_cycles": {
+        "name": "Akun ekvivalentit täyssyklit"
+      },
+      "battery_temperature_average_30d": {
+        "name": "Akun lämpötilan 30 vrk keskiarvo"
+      },
+      "battery_high_temperature_hours_30d": {
+        "name": "Akun korkean lämpötilan tunnit 30 vrk"
+      },
+      "battery_low_soc_hours_30d": {
+        "name": "Akun matalan varaustason tunnit 30 vrk"
+      },
+      "battery_high_soc_hours_30d": {
+        "name": "Akun korkean varaustason tunnit 30 vrk"
+      },
+      "self_sufficiency_ratio_30d": {
+        "name": "Omavaraisuusaste 30 vrk"
+      },
+      "solar_self_consumption_ratio_30d": {
+        "name": "Aurinkosähkön omakäyttöaste 30 vrk"
+      },
+      "battery_house_supply_ratio_30d": {
+        "name": "Akun talosyöttöosuus 30 vrk"
+      },
+      "battery_charge_from_solar_ratio_30d": {
+        "name": "Akun aurinkolatausosuus 30 vrk"
+      },
+      "estimated_backup_runtime_hours": {
+        "name": "Arvioitu varakäyttöaika"
+      },
+      "usable_capacity_candidate_count": {
+        "name": "Käytettävän kapasiteetin ehdokkaiden määrä"
+      },
+      "analytics_processed_periods": {
+        "name": "Käsitellyt analytiikkaikkunat"
+      },
+      "analytics_total_day_buckets": {
+        "name": "Analytiikan kaikki päiväkorit"
+      },
+      "analytics_rolling_day_buckets": {
+        "name": "Analytiikan liukuvat päiväkorit"
+      },
+      "skipped_savings_windows": {
+        "name": "Ohitetut säästöikkunat"
+      },
+      "economics_processed_periods": {
+        "name": "Käsitellyt talousikkunat"
+      },
       "grid_import_energy": {
         "name": "Verkko-oston energia"
       },
@@ -135,10 +265,38 @@
         "title": "Asetukset",
         "description": "Määritä integraation valinnaiset asetukset.",
         "data": {
-          "startup_backfill_hours": "Käynnistyksen backfill (tuntia)"
+          "startup_backfill_hours": "Käynnistyksen backfill (tuntia)",
+          "tariff_preset": "Tariffiesiasetus",
+          "tariff_mode": "Tariffitila",
+          "import_retailer_margin": "Oston myyntikate",
+          "export_retailer_adjustment": "Myynnin hinnan oikaisu",
+          "grid_import_transfer_fee": "Oston siirtomaksu",
+          "grid_export_transfer_fee": "Myynnin siirtomaksu",
+          "electricity_tax_fee": "Sähkövero",
+          "day_import_retailer_margin": "Päiväoston myyntikate",
+          "night_import_retailer_margin": "Yöoston myyntikate",
+          "day_grid_import_transfer_fee": "Päiväoston siirtomaksu",
+          "night_grid_import_transfer_fee": "Yöoston siirtomaksu",
+          "power_fee_rule": "Tehomaksun sääntö",
+          "power_fee_rate": "Tehomaksun hinta",
+          "battery_expected_usable_capacity_kwh": "Akun odotettu käytettävä kapasiteetti"
         },
         "data_description": {
-          "startup_backfill_hours": "Kuinka monta tuntia historiallista dataa haetaan automaattisesti käynnistyksen yhteydessä. Aseta 0 poistaaksesi automaattisen backfillin."
+          "startup_backfill_hours": "Kuinka monta tuntia historiallista dataa haetaan automaattisesti käynnistyksen yhteydessä. Aseta 0 poistaaksesi automaattisen backfillin.",
+          "tariff_preset": "Valinnainen päivätty tariffiesiasetus. Esiasetukset asettavat tällä hetkellä siirtopuolen oletukset ja tariffitilan tallennettaessa. Mukana olevat snapshotit kattavat tällä hetkellä Caruna Espoon ja Caruna Oy:n siirtotariffit.",
+          "tariff_mode": "Valitse, käytetäänkö ostossa spot-only-, kiinteää, päivä/yö- vai kausipäivä/yö-hinnoittelua.",
+          "import_retailer_margin": "Spot-hintaan lisättävä oston myyntikate c/kWh. Syötä kotitalouslaskutuksen bruttomääräinen arvo, jos haluat kokonaislukujen vastaavan laskua.",
+          "export_retailer_adjustment": "Spot-hintaan myynnissä sovellettava oikaisu c/kWh. Negatiivinen arvo pienentää myyntikorvausta.",
+          "grid_import_transfer_fee": "Kiinteä oston siirtomaksu c/kWh. Syötä kotitalouslaskutuksen bruttomääräinen arvo tarvittaessa.",
+          "grid_export_transfer_fee": "Myynnin siirtomaksu c/kWh.",
+          "electricity_tax_fee": "Kiinteä ostoon lisättävä sähkövero c/kWh. Syötä kotitalouslaskutuksen bruttomääräinen arvo tarvittaessa.",
+          "day_import_retailer_margin": "Päiväajan oston myyntikate c/kWh päivä/yö-tilassa tai talven päiväjakson kate kausipäivä/yö-tilassa. Syötä kotitalouslaskutuksen bruttomääräinen arvo, jos haluat kokonaislukujen vastaavan laskua.",
+          "night_import_retailer_margin": "Yöajan oston myyntikate c/kWh päivä/yö-tilassa tai muiden aikojen kate kausipäivä/yö-tilassa. Syötä kotitalouslaskutuksen bruttomääräinen arvo, jos haluat kokonaislukujen vastaavan laskua.",
+          "day_grid_import_transfer_fee": "Päiväajan oston siirtomaksu c/kWh päivä/yö-tilassa tai talven päiväjakson siirtomaksu kausipäivä/yö-tilassa. Syötä kotitalouslaskutuksen bruttomääräinen arvo tarvittaessa.",
+          "night_grid_import_transfer_fee": "Yöajan oston siirtomaksu c/kWh päivä/yö-tilassa tai muiden aikojen siirtomaksu kausipäivä/yö-tilassa. Syötä kotitalouslaskutuksen bruttomääräinen arvo tarvittaessa.",
+          "power_fee_rule": "Valitse, miten kuukausittainen tehomaksuarvio lasketaan.",
+          "power_fee_rate": "Kuukausittainen tehomaksu euroina per kelpo kW. Syötä kotitalouslaskutuksen bruttomääräinen arvo tarvittaessa.",
+          "battery_expected_usable_capacity_kwh": "Akun määritetty käytettävä kapasiteetti kWh-yksikössä. Tätä käytetään heuristisen kuntoarvion, ekvivalenttisten syklien ja varakäyttöajan perusarvona. Aseta 0 poistaaksesi kapasiteettipohjaiset analytiikat käytöstä."
         }
       }
     }

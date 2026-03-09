@@ -36,3 +36,28 @@ automation:
       - action: elisa_kotiakku.backfill_energy
         data:
           hours: 24
+
+  - alias: Elisa Kotiakku savings math needs attention
+    id: elisa_kotiakku_skipped_savings_windows
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.elisa_kotiakku_skipped_savings_windows
+        above: 0
+    actions:
+      - action: persistent_notification.create
+        data:
+          title: Kotiakku savings diagnostics
+          message: >
+            Some measurement windows were skipped in battery savings calculations.
+            Check directional flow availability and tariff debug sensors.
+
+  - alias: Elisa Kotiakku rebuild economics after tariff change
+    id: elisa_kotiakku_rebuild_economics_after_tariff_change
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.kotiakku_tariff_changed
+        to: "on"
+    actions:
+      - action: elisa_kotiakku.rebuild_economics
+        data:
+          hours: 168

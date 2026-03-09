@@ -1,0 +1,16 @@
+utility_meter:
+  kotiakku_monthly_net_electricity_cost:
+    source: sensor.elisa_kotiakku_total_net_site_electricity_cost
+    cycle: monthly
+
+  kotiakku_monthly_battery_savings:
+    source: sensor.elisa_kotiakku_total_battery_savings
+    cycle: monthly
+
+  kotiakku_monthly_purchase_cost:
+    source: sensor.elisa_kotiakku_total_purchase_cost
+    cycle: monthly
+
+  kotiakku_monthly_power_fee_estimate:
+    source: sensor.elisa_kotiakku_total_power_fee_cost
+    cycle: monthly
