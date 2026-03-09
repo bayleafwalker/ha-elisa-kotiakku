@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from homeassistant.exceptions import HomeAssistantError
@@ -13,8 +13,6 @@ from custom_components.elisa_kotiakku.button import (
     ElisaKotiakkuButton,
     async_setup_entry,
 )
-
-from .conftest import SAMPLE_MEASUREMENT
 
 
 class TestButtonDescriptions:

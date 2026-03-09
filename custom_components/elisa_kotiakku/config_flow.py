@@ -16,6 +16,14 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 
 from .api import (
     ElisaKotiakkuApiClient,
@@ -87,70 +95,135 @@ STEP_RECONFIGURE_DATA_SCHEMA = vol.Schema(
 )
 
 
+_CENTS_PER_KWH_SELECTOR = NumberSelector(
+    NumberSelectorConfig(
+        step="any",
+        unit_of_measurement="c/kWh",
+        mode=NumberSelectorMode.BOX,
+    )
+)
+
+_NON_NEGATIVE_CENTS_PER_KWH_SELECTOR = NumberSelector(
+    NumberSelectorConfig(
+        min=0,
+        step="any",
+        unit_of_measurement="c/kWh",
+        mode=NumberSelectorMode.BOX,
+    )
+)
+
+
 def _options_data_schema(options: dict[str, Any]) -> vol.Schema:
     """Return options form schema with current values as defaults."""
     return vol.Schema(
         {
-            vol.Required(
-                CONF_STARTUP_BACKFILL_HOURS,
-                default=options[CONF_STARTUP_BACKFILL_HOURS],
-            ): vol.All(int, vol.Range(min=0, max=MAX_BACKFILL_HOURS)),
-            vol.Required(
-                CONF_TARIFF_PRESET,
-                default=options[CONF_TARIFF_PRESET],
-            ): vol.In(TARIFF_PRESETS),
-            vol.Required(
-                CONF_TARIFF_MODE,
-                default=options[CONF_TARIFF_MODE],
-            ): vol.In(TARIFF_MODES),
-            vol.Required(
-                CONF_IMPORT_RETAILER_MARGIN,
-                default=options[CONF_IMPORT_RETAILER_MARGIN],
-            ): vol.Coerce(float),
-            vol.Required(
-                CONF_EXPORT_RETAILER_ADJUSTMENT,
-                default=options[CONF_EXPORT_RETAILER_ADJUSTMENT],
-            ): vol.Coerce(float),
-            vol.Required(
-                CONF_GRID_IMPORT_TRANSFER_FEE,
-                default=options[CONF_GRID_IMPORT_TRANSFER_FEE],
-            ): vol.Coerce(float),
-            vol.Required(
-                CONF_GRID_EXPORT_TRANSFER_FEE,
-                default=options[CONF_GRID_EXPORT_TRANSFER_FEE],
-            ): vol.Coerce(float),
-            vol.Required(
-                CONF_ELECTRICITY_TAX_FEE,
-                default=options[CONF_ELECTRICITY_TAX_FEE],
-            ): vol.All(vol.Coerce(float), vol.Range(min=0)),
-            vol.Required(
-                CONF_DAY_IMPORT_RETAILER_MARGIN,
-                default=options[CONF_DAY_IMPORT_RETAILER_MARGIN],
-            ): vol.Coerce(float),
-            vol.Required(
-                CONF_NIGHT_IMPORT_RETAILER_MARGIN,
-                default=options[CONF_NIGHT_IMPORT_RETAILER_MARGIN],
-            ): vol.Coerce(float),
-            vol.Required(
-                CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
-                default=options[CONF_DAY_GRID_IMPORT_TRANSFER_FEE],
-            ): vol.Coerce(float),
-            vol.Required(
-                CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE,
-                default=options[CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE],
-            ): vol.Coerce(float),
-            vol.Required(
-                CONF_POWER_FEE_RULE,
-                default=options[CONF_POWER_FEE_RULE],
-            ): vol.In(POWER_FEE_RULES),
-            vol.Required(
-                CONF_POWER_FEE_RATE,
-                default=options[CONF_POWER_FEE_RATE],
-            ): vol.All(vol.Coerce(float), vol.Range(min=0)),
+            # ── Battery ──────────────────────────────────────────────
             vol.Required(
                 CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
                 default=options[CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH],
-            ): vol.All(vol.Coerce(float), vol.Range(min=0)),
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0,
+                    step="any",
+                    unit_of_measurement="kWh",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
+            # ── Data import ──────────────────────────────────────────
+            vol.Required(
+                CONF_STARTUP_BACKFILL_HOURS,
+                default=options[CONF_STARTUP_BACKFILL_HOURS],
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0,
+                    max=MAX_BACKFILL_HOURS,
+                    step=1,
+                    unit_of_measurement="hours",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
+            # ── Tariff preset & mode ─────────────────────────────────
+            vol.Required(
+                CONF_TARIFF_PRESET,
+                default=options[CONF_TARIFF_PRESET],
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(TARIFF_PRESETS),
+                    translation_key=CONF_TARIFF_PRESET,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(
+                CONF_TARIFF_MODE,
+                default=options[CONF_TARIFF_MODE],
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(TARIFF_MODES),
+                    translation_key=CONF_TARIFF_MODE,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            # ── Import pricing (flat / spot) ─────────────────────────
+            vol.Required(
+                CONF_IMPORT_RETAILER_MARGIN,
+                default=options[CONF_IMPORT_RETAILER_MARGIN],
+            ): _CENTS_PER_KWH_SELECTOR,
+            vol.Required(
+                CONF_GRID_IMPORT_TRANSFER_FEE,
+                default=options[CONF_GRID_IMPORT_TRANSFER_FEE],
+            ): _NON_NEGATIVE_CENTS_PER_KWH_SELECTOR,
+            # ── Import pricing (day / night) ─────────────────────────
+            vol.Required(
+                CONF_DAY_IMPORT_RETAILER_MARGIN,
+                default=options[CONF_DAY_IMPORT_RETAILER_MARGIN],
+            ): _CENTS_PER_KWH_SELECTOR,
+            vol.Required(
+                CONF_NIGHT_IMPORT_RETAILER_MARGIN,
+                default=options[CONF_NIGHT_IMPORT_RETAILER_MARGIN],
+            ): _CENTS_PER_KWH_SELECTOR,
+            vol.Required(
+                CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
+                default=options[CONF_DAY_GRID_IMPORT_TRANSFER_FEE],
+            ): _NON_NEGATIVE_CENTS_PER_KWH_SELECTOR,
+            vol.Required(
+                CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE,
+                default=options[CONF_NIGHT_GRID_IMPORT_TRANSFER_FEE],
+            ): _NON_NEGATIVE_CENTS_PER_KWH_SELECTOR,
+            # ── Tax & export ─────────────────────────────────────────
+            vol.Required(
+                CONF_ELECTRICITY_TAX_FEE,
+                default=options[CONF_ELECTRICITY_TAX_FEE],
+            ): _NON_NEGATIVE_CENTS_PER_KWH_SELECTOR,
+            vol.Required(
+                CONF_EXPORT_RETAILER_ADJUSTMENT,
+                default=options[CONF_EXPORT_RETAILER_ADJUSTMENT],
+            ): _CENTS_PER_KWH_SELECTOR,
+            vol.Required(
+                CONF_GRID_EXPORT_TRANSFER_FEE,
+                default=options[CONF_GRID_EXPORT_TRANSFER_FEE],
+            ): _NON_NEGATIVE_CENTS_PER_KWH_SELECTOR,
+            # ── Power fee ────────────────────────────────────────────
+            vol.Required(
+                CONF_POWER_FEE_RULE,
+                default=options[CONF_POWER_FEE_RULE],
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(POWER_FEE_RULES),
+                    translation_key=CONF_POWER_FEE_RULE,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(
+                CONF_POWER_FEE_RATE,
+                default=options[CONF_POWER_FEE_RATE],
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0,
+                    step="any",
+                    unit_of_measurement="EUR/kW/month",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
         }
     )
 

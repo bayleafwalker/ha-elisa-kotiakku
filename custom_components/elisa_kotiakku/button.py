@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any
 
 from homeassistant.components.button import (
     ButtonDeviceClass,

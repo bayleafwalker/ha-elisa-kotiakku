@@ -273,42 +273,70 @@
   "options": {
     "step": {
       "init": {
-        "title": "Options",
-        "description": "Configure optional integration behavior.",
+        "title": "Elisa Kotiakku Options",
+        "description": "Configure battery capacity, tariff pricing, and power fee settings. When selecting a tariff preset, the grid transfer fees and tariff mode are automatically applied — you only need to configure retailer margins, taxes, and export fees manually.",
         "data": {
-          "startup_backfill_hours": "Startup backfill hours",
-          "tariff_preset": "Tariff preset",
-          "tariff_mode": "Tariff mode",
-          "import_retailer_margin": "Import retailer margin",
-          "export_retailer_adjustment": "Export retailer adjustment",
-          "grid_import_transfer_fee": "Grid import transfer fee",
-          "grid_export_transfer_fee": "Grid export transfer fee",
-          "electricity_tax_fee": "Electricity tax fee",
-          "day_import_retailer_margin": "Day import retailer margin",
-          "night_import_retailer_margin": "Night import retailer margin",
-          "day_grid_import_transfer_fee": "Day grid import transfer fee",
-          "night_grid_import_transfer_fee": "Night grid import transfer fee",
-          "power_fee_rule": "Power fee rule",
-          "power_fee_rate": "Power fee rate",
-          "battery_expected_usable_capacity_kwh": "Expected usable battery capacity"
+          "battery_expected_usable_capacity_kwh": "Expected usable battery capacity (kWh)",
+          "startup_backfill_hours": "Startup backfill (hours)",
+          "tariff_preset": "Grid transfer tariff preset",
+          "tariff_mode": "Tariff pricing mode",
+          "import_retailer_margin": "Import retailer margin (c/kWh) — flat / spot",
+          "grid_import_transfer_fee": "Grid import transfer fee (c/kWh) — flat",
+          "day_import_retailer_margin": "Day import retailer margin (c/kWh)",
+          "night_import_retailer_margin": "Night import retailer margin (c/kWh)",
+          "day_grid_import_transfer_fee": "Day grid import transfer fee (c/kWh)",
+          "night_grid_import_transfer_fee": "Night grid import transfer fee (c/kWh)",
+          "electricity_tax_fee": "Electricity tax (c/kWh)",
+          "export_retailer_adjustment": "Export retailer adjustment (c/kWh)",
+          "grid_export_transfer_fee": "Grid export transfer fee (c/kWh)",
+          "power_fee_rule": "Power fee calculation rule",
+          "power_fee_rate": "Power fee rate (EUR/kW/month)"
         },
         "data_description": {
-          "startup_backfill_hours": "How many hours of historical data to import automatically on startup. Set to 0 to disable automatic startup backfill.",
-          "tariff_preset": "Optional dated tariff preset. Presets currently apply transfer-side defaults and tariff mode when saved. Bundled snapshots currently cover Caruna Espoo and Caruna Oy transfer tariffs.",
-          "tariff_mode": "Select whether import-side margins and transfer fees use spot-only, flat, day/night, or seasonal day/night pricing.",
-          "import_retailer_margin": "Retailer margin added to spot price for imports in c/kWh. Enter the household-billing gross value you want reflected in the totals.",
-          "export_retailer_adjustment": "Adjustment applied to spot price for exports in c/kWh. Negative values reduce export compensation.",
-          "grid_import_transfer_fee": "Flat grid transfer fee for imports in c/kWh. Enter the household-billing gross value if applicable.",
-          "grid_export_transfer_fee": "Grid transfer fee for exports in c/kWh.",
-          "electricity_tax_fee": "Fixed electricity tax applied to imports in c/kWh. Enter the household-billing gross value if applicable.",
-          "day_import_retailer_margin": "Daytime retailer margin for imports in c/kWh when tariff mode is day/night, or the winter daytime margin when tariff mode is seasonal day/night. Enter the household-billing gross value you want reflected in the totals.",
-          "night_import_retailer_margin": "Nighttime retailer margin for imports in c/kWh when tariff mode is day/night, or the other-times margin when tariff mode is seasonal day/night. Enter the household-billing gross value you want reflected in the totals.",
-          "day_grid_import_transfer_fee": "Daytime grid transfer fee for imports in c/kWh when tariff mode is day/night, or the winter daytime fee when tariff mode is seasonal day/night. Enter the household-billing gross value if applicable.",
-          "night_grid_import_transfer_fee": "Nighttime grid transfer fee for imports in c/kWh when tariff mode is day/night, or the other-times fee when tariff mode is seasonal day/night. Enter the household-billing gross value if applicable.",
-          "power_fee_rule": "Select how the estimated monthly power fee is calculated.",
-          "power_fee_rate": "Monthly power fee rate in EUR per qualifying kW. Enter the household-billing gross value if applicable.",
-          "battery_expected_usable_capacity_kwh": "Configured usable battery capacity in kWh used as the baseline for heuristic health, cycle, and backup-runtime estimates. Set to 0 to disable capacity-based analytics."
+          "battery_expected_usable_capacity_kwh": "Usable capacity of your battery pack in kWh. Used for health, cycle, and backup-runtime estimates. Set to 0 to disable capacity-based analytics.",
+          "startup_backfill_hours": "Hours of historical data to import automatically on startup. Set to 0 to disable automatic startup backfill.",
+          "tariff_preset": "Select your grid operator's transfer tariff. Presets automatically set the tariff mode and grid transfer fees when saved. All other fields (retailer margins, taxes, export fees) must be configured manually.",
+          "tariff_mode": "Controls how import pricing is structured. Automatically set by preset; override only with 'Custom'. 'Spot only' uses only spot price + margin. 'Flat' adds a single transfer fee. 'Day/Night' uses separate fees for 07–22 / 22–07. 'Seasonal Day/Night' uses winter daytime (Nov–Mar, Mon–Sat 07–22) vs other times.",
+          "import_retailer_margin": "Retailer margin added to the spot price for grid imports. Used when tariff mode is 'Flat' or 'Spot only'. Not auto-set by presets — always configure manually. Negative values represent discounts.",
+          "grid_import_transfer_fee": "Grid transfer fee for imports in flat mode. Auto-set by preset when a flat preset is selected (e.g. Caruna Yleissiirto → 5.26 c/kWh). Enter the household-billing gross value.",
+          "day_import_retailer_margin": "Daytime retailer margin for imports (07–22) with day/night mode, or winter daytime margin (Nov–Mar, Mon–Sat 07–22) with seasonal mode. Not auto-set by presets — always configure manually.",
+          "night_import_retailer_margin": "Nighttime retailer margin for imports (22–07) with day/night mode, or other-times margin with seasonal mode. Not auto-set by presets — always configure manually.",
+          "day_grid_import_transfer_fee": "Daytime grid import transfer fee (07–22) with day/night mode, or winter daytime fee with seasonal mode. Auto-set by preset when a day/night or seasonal preset is selected.",
+          "night_grid_import_transfer_fee": "Nighttime grid import transfer fee (22–07) with day/night mode, or other-times fee with seasonal mode. Auto-set by preset when a day/night or seasonal preset is selected.",
+          "electricity_tax_fee": "Fixed electricity tax on grid imports. Not auto-set by presets — always configure manually. Enter the household-billing gross value.",
+          "export_retailer_adjustment": "Adjustment applied to the spot price for grid exports. Negative values reduce export compensation. Not auto-set by presets — always configure manually.",
+          "grid_export_transfer_fee": "Grid transfer fee for exports. Not auto-set by presets — always configure manually.",
+          "power_fee_rule": "Method for calculating the estimated monthly power (demand) fee. Select 'None' to disable power fee tracking.",
+          "power_fee_rate": "Monthly power fee rate per qualifying kW. Not auto-set by presets — always configure manually. Enter the household-billing gross value."
         }
+      }
+    }
+  },
+  "selector": {
+    "tariff_preset": {
+      "options": {
+        "custom": "Custom — configure all tariff fields manually",
+        "caruna_general_2026_01": "Caruna Oy Yleissiirto — flat 5.26 c/kWh (eff. 2026-01)",
+        "caruna_night_2026_01": "Caruna Oy Yösiirto — day 5.11 / night 3.12 c/kWh (eff. 2026-01)",
+        "caruna_night_seasonal_2026_01": "Caruna Oy Kausisiirto — winter day 6.73 / other 3.23 c/kWh (eff. 2026-01)",
+        "caruna_espoo_general_2026_01": "Caruna Espoo Yleissiirto — flat 4.87 c/kWh (eff. 2026-01)",
+        "caruna_espoo_night_2026_01": "Caruna Espoo Yösiirto — day 5.11 / night 3.12 c/kWh (eff. 2026-01)"
+      }
+    },
+    "tariff_mode": {
+      "options": {
+        "spot_only": "Spot only — spot price + retailer margin, no transfer fee",
+        "flat": "Flat — single transfer fee and retailer margin for all hours",
+        "day_night": "Day / Night — separate fees for 07:00–22:00 and 22:00–07:00",
+        "seasonal_day_night": "Seasonal Day / Night — winter daytime (Nov–Mar, Mon–Sat 07–22) vs other times"
+      }
+    },
+    "power_fee_rule": {
+      "options": {
+        "none": "None — no power fee tracking",
+        "monthly_max_all_hours": "Monthly maximum — highest single-hour demand",
+        "monthly_top3_all_hours": "Monthly top 3 average — average of three highest hours",
+        "monthly_top3_winter_weekday_daytime": "Monthly top 3 winter weekday daytime — Nov–Mar, Mon–Fri 07–22 only"
       }
     }
   }
