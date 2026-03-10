@@ -12,7 +12,6 @@ from custom_components.elisa_kotiakku.const import (
     CONF_BATTERY_MONTHLY_COST,
     CONF_BATTERY_TOTAL_COST,
     CONF_IMPORT_RETAILER_MARGIN,
-    CONF_TARIFF_MODE,
 )
 from custom_components.elisa_kotiakku.coordinator import (
     ElisaKotiakkuCoordinator,
