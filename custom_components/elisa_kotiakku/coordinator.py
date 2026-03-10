@@ -22,9 +22,11 @@ from .api import (
     MeasurementData,
 )
 from .const import (
+    CONF_AKKURESERVIHYVITYS,
     CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
     CONF_BATTERY_MONTHLY_COST,
     CONF_BATTERY_TOTAL_COST,
+    DEFAULT_AKKURESERVIHYVITYS,
     DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
     DEFAULT_BATTERY_MONTHLY_COST,
     DEFAULT_BATTERY_TOTAL_COST,
@@ -82,6 +84,12 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
             config_entry.options.get(
                 CONF_BATTERY_TOTAL_COST,
                 DEFAULT_BATTERY_TOTAL_COST,
+            )
+        )
+        self.akkureservihyvitys = float(
+            config_entry.options.get(
+                CONF_AKKURESERVIHYVITYS,
+                DEFAULT_AKKURESERVIHYVITYS,
             )
         )
 
@@ -440,8 +448,10 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         have not yet exceeded the cost this month.
         """
         monthly_cost = self._effective_monthly_cost()
-        if monthly_cost is None or monthly_cost <= 0:
+        if monthly_cost is None:
             return None
+        if monthly_cost <= 0:
+            return 1
 
         month_key = self._current_measurement_month_key()
         if month_key is None:
@@ -490,31 +500,47 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
             return None
 
         total_savings = self.economics_totals.get("battery_savings", 0.0)
-        if total_savings <= 0:
-            return None
-
-        remaining = total_cost - total_savings
-        if remaining <= 0:
-            return 0.0
 
         # Estimate monthly rate from total savings over tracked months.
         tracked_months = len(self._monthly_battery_savings)
+
+        # Retroactive akkureservi credit: compensation received since tracking.
+        akkureservi_total = self.akkureservihyvitys * tracked_months
+        effective_savings = total_savings + akkureservi_total
+
+        if effective_savings <= 0:
+            return None
+
+        remaining = total_cost - effective_savings
+        if remaining <= 0:
+            return 0.0
+
         if tracked_months == 0:
             return None
 
-        avg_monthly = total_savings / tracked_months
-        if avg_monthly <= 0:
+        avg_energy_savings = total_savings / tracked_months
+        effective_monthly_rate = avg_energy_savings + self.akkureservihyvitys
+        if effective_monthly_rate <= 0:
             return None
 
-        return round(remaining / avg_monthly, 1)
+        return round(remaining / effective_monthly_rate, 1)
 
     def _effective_monthly_cost(self) -> float | None:
-        """Return configured monthly cost, deriving from total if needed."""
+        """Return configured monthly cost, deriving from total if needed.
+
+        When ``battery_monthly_cost`` is set directly it is returned as-is
+        (user is expected to have already accounted for service fees and
+        akkureservi compensation).
+
+        When deriving from ``battery_total_cost`` (÷ 120 months), the
+        akkureservihyvitys is subtracted to reflect the net monthly cost.
+        """
         if self.battery_monthly_cost > 0:
             return self.battery_monthly_cost
         if self.battery_total_cost > 0:
             # Default assumption: 10-year payback period (120 months)
-            return self.battery_total_cost / 120.0
+            derived = self.battery_total_cost / 120.0
+            return derived - self.akkureservihyvitys
         return None
 
     def get_economics_debug_value(self, key: str) -> float | int | None:

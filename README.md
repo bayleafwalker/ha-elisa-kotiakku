@@ -103,6 +103,7 @@ The options flow uses native Home Assistant selectors (dropdowns, number inputs)
 - Battery cost (payback tracking):
   - `battery_monthly_cost`: monthly instalment or lease cost in `EUR/month`.
   - `battery_total_cost`: total battery system cost in `EUR`.
+  - `akkureservihyvitys`: monthly battery reserve compensation in `EUR/month`.
 
 ### Configuration parameters
 
@@ -124,6 +125,7 @@ The options flow uses native Home Assistant selectors (dropdowns, number inputs)
 | Analytics | `battery_expected_usable_capacity_kwh` | No | Options flow | `10.0` | Configured usable battery capacity baseline for health analytics |
 | Battery cost | `battery_monthly_cost` | No | Options flow | `49.00` | Monthly instalment or lease cost in `EUR/month` |
 | Battery cost | `battery_total_cost` | No | Options flow | `6000.00` | Total battery system cost in `EUR` |
+| Battery cost | `akkureservihyvitys` | No | Options flow | `10.00` | Monthly battery reserve compensation in `EUR/month` |
 
 ## Supported devices
 
@@ -247,15 +249,18 @@ Preset behavior:
 
 For batteries purchased with an instalment plan (osamaksu) or lease, the integration can track when monthly savings cover the monthly battery cost, and how long until the total investment is recovered.
 
+The Kotiakku service has a fixed monthly fee that is waived when the user accepts akkureservi (battery reserve for grid balancing). In return, the user receives a fixed monthly compensation (akkureservihyvitys). Since these are mutually exclusive, configuring the akkureservihyvitys amount is sufficient to account for both.
+
 Configuration options (in Options flow):
 
-- `battery_monthly_cost`: monthly instalment or lease cost in EUR. Set to `0` to disable or to derive from total cost.
-- `battery_total_cost`: total battery system cost in EUR. Used for payback estimation. If monthly cost is not set, `total_cost / 120` is used as the monthly cost (10-year assumption).
+- `battery_monthly_cost`: monthly instalment or lease cost in EUR. When set, this is treated as the aggregate net monthly cost (user accounts for service fees and compensation). Set to `0` to derive from total cost instead.
+- `battery_total_cost`: total battery system cost in EUR. Used for payback estimation. If monthly cost is not set, `total_cost / 120` is used as the monthly cost (10-year assumption), minus akkureservihyvitys.
+- `akkureservihyvitys`: monthly compensation for grid reserve participation in EUR. Subtracted from the derived monthly cost (when using total cost), and added to the effective monthly savings rate for payback estimation. Both retroactive (credited for already-tracked months) and forward-looking. Set to `0` if not applicable.
 
 Sensors:
 
-- **Monthly first day of profit**: estimated day-of-month when cumulative battery savings for the current month exceed the monthly battery cost. Uses linear interpolation. Returns `None` when savings have not yet exceeded the cost or when cost is not configured.
-- **Payback remaining months**: estimated months until cumulative battery savings recover the total battery cost. Based on the average monthly savings rate across all tracked months. Returns `0` when savings already exceed total cost; `None` when total cost is not configured or no savings have been recorded.
+- **Monthly first day of profit**: estimated day-of-month when cumulative battery savings for the current month exceed the effective monthly battery cost. Uses linear interpolation. Returns `1` when the effective monthly cost is zero or negative (already profitable). Returns `None` when cost is not configured or no savings have been recorded.
+- **Payback remaining months**: estimated months until cumulative battery savings (including retroactive akkureservi credit) recover the total battery cost. Based on the average monthly energy savings rate plus akkureservihyvitys. Returns `0` when savings already exceed total cost; `None` when total cost is not configured or no savings have been recorded.
 
 ## Supported functionality
 

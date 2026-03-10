@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.elisa_kotiakku.const import (
+    CONF_AKKURESERVIHYVITYS,
     CONF_BATTERY_MONTHLY_COST,
     CONF_BATTERY_TOTAL_COST,
     CONF_IMPORT_RETAILER_MARGIN,
@@ -136,6 +137,59 @@ class TestEffectiveMonthlyCost:
         )
         assert coordinator._effective_monthly_cost() is None
 
+    def test_total_cost_with_akkureservihyvitys(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Akkureservihyvitys is subtracted from total-cost-derived monthly."""
+        mock_config_entry.options = {
+            CONF_BATTERY_MONTHLY_COST: 0.0,
+            CONF_BATTERY_TOTAL_COST: 6000.0,
+            CONF_AKKURESERVIHYVITYS: 10.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        # 6000/120 = 50.0 - 10.0 = 40.0
+        assert coordinator._effective_monthly_cost() == pytest.approx(40.0)
+
+    def test_akkureservi_exceeds_derived_monthly(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """When akkureservi exceeds derived monthly, cost can be negative."""
+        mock_config_entry.options = {
+            CONF_BATTERY_MONTHLY_COST: 0.0,
+            CONF_BATTERY_TOTAL_COST: 600.0,  # 600/120 = 5.0
+            CONF_AKKURESERVIHYVITYS: 10.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        # 5.0 - 10.0 = -5.0
+        assert coordinator._effective_monthly_cost() == pytest.approx(-5.0)
+
+    def test_monthly_cost_ignores_akkureservihyvitys(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """When monthly_cost is set directly, akkureservi is NOT subtracted."""
+        mock_config_entry.options = {
+            CONF_BATTERY_MONTHLY_COST: 49.0,
+            CONF_BATTERY_TOTAL_COST: 6000.0,
+            CONF_AKKURESERVIHYVITYS: 10.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        assert coordinator._effective_monthly_cost() == 49.0
+
 
 class TestMonthlyFirstDayOfProfit:
     """Tests for get_monthly_first_day_of_profit."""
@@ -261,6 +315,25 @@ class TestMonthlyFirstDayOfProfit:
         assert result is not None
         assert result == 9
 
+    def test_returns_day_1_when_akkureservi_covers_cost(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """When akkureservi makes effective monthly cost <= 0, return day 1."""
+        mock_config_entry.options = {
+            CONF_BATTERY_TOTAL_COST: 600.0,  # 600/120 = 5.0
+            CONF_AKKURESERVIHYVITYS: 10.0,  # net = -5.0
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator.data = SAMPLE_MEASUREMENT
+        coordinator._monthly_battery_savings = {"2025-12": 1.0}
+        result = coordinator.get_monthly_first_day_of_profit()
+        assert result == 1
+
 
 class TestPaybackRemainingMonths:
     """Tests for get_payback_remaining_months."""
@@ -340,6 +413,59 @@ class TestPaybackRemainingMonths:
         coordinator._monthly_battery_savings = {}
         result = coordinator.get_payback_remaining_months()
         assert result is None
+
+    def test_akkureservi_reduces_remaining_and_accelerates(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Akkureservihyvitys is credited retroactively and added to rate."""
+        mock_config_entry.options = {
+            CONF_BATTERY_TOTAL_COST: 5000.0,
+            CONF_AKKURESERVIHYVITYS: 10.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator.economics_totals["battery_savings"] = 900.0
+        coordinator._monthly_battery_savings = {
+            "2025-10": 250.0,
+            "2025-11": 300.0,
+            "2025-12": 350.0,
+        }
+        # retroactive credit = 10 * 3 = 30
+        # effective_savings = 900 + 30 = 930
+        # remaining = 5000 - 930 = 4070
+        # avg_energy = 900/3 = 300
+        # effective_rate = 300 + 10 = 310
+        # result = 4070/310 ≈ 13.1
+        result = coordinator.get_payback_remaining_months()
+        assert result is not None
+        assert result == pytest.approx(13.1, abs=0.1)
+
+    def test_akkureservi_tips_to_fully_paid(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Akkureservi retroactive credit can push remaining to zero."""
+        mock_config_entry.options = {
+            CONF_BATTERY_TOTAL_COST: 1000.0,
+            CONF_AKKURESERVIHYVITYS: 10.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator.economics_totals["battery_savings"] = 950.0
+        coordinator._monthly_battery_savings = {
+            f"2025-{m:02d}": 50.0 for m in range(1, 13)
+        }
+        # retroactive = 10 * 12 = 120
+        # effective = 950 + 120 = 1070 > 1000
+        result = coordinator.get_payback_remaining_months()
+        assert result == 0.0
 
 
 class TestMonthlySavingsTracking:
