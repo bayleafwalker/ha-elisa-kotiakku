@@ -9,12 +9,36 @@ from . import ElisaKotiakkuConfigEntry
 from .sensor_derived import (
     COORDINATOR_SENSOR_DESCRIPTIONS,
     ElisaKotiakkuCoordinatorSensor,
+    ElisaKotiakkuCoordinatorSensorDescription,
     _active_rate_value,  # noqa: F401
 )
-from .sensor_energy import ENERGY_SENSOR_DESCRIPTIONS, ElisaKotiakkuEnergySensor
-from .sensor_measurement import SENSOR_DESCRIPTIONS, ElisaKotiakkuSensor
+from .sensor_energy import (
+    ENERGY_SENSOR_DESCRIPTIONS,
+    ElisaKotiakkuEnergySensor,
+    ElisaKotiakkuEnergySensorDescription,
+)
+from .sensor_measurement import (
+    SENSOR_DESCRIPTIONS,
+    ElisaKotiakkuSensor,
+    ElisaKotiakkuSensorDescription,
+)
 
 PARALLEL_UPDATES = 0
+
+__all__ = [
+    "PARALLEL_UPDATES",
+    "SENSOR_DESCRIPTIONS",
+    "ENERGY_SENSOR_DESCRIPTIONS",
+    "COORDINATOR_SENSOR_DESCRIPTIONS",
+    "ElisaKotiakkuSensor",
+    "ElisaKotiakkuEnergySensor",
+    "ElisaKotiakkuCoordinatorSensor",
+    "ElisaKotiakkuSensorDescription",
+    "ElisaKotiakkuEnergySensorDescription",
+    "ElisaKotiakkuCoordinatorSensorDescription",
+    "_active_rate_value",
+    "async_setup_entry",
+]
 
 
 async def async_setup_entry(

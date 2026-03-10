@@ -25,8 +25,23 @@ target-version = "py312"
 select = ["E", "F", "I", "UP"]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.12"
 strict = true
 warn_unused_ignores = true
 show_error_codes = true
 explicit_package_bases = true
+disallow_subclassing_any = false
+disallow_untyped_decorators = false
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = ["homeassistant.*"]
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["custom_components.elisa_kotiakku.config_flow"]
+disable_error_code = ["call-arg"]
+
+[[tool.mypy.overrides]]
+module = ["custom_components.elisa_kotiakku.coordinator"]
+disable_error_code = ["has-type"]

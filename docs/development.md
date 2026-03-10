@@ -50,4 +50,4 @@ python -m json.tool custom_components/elisa_kotiakku/manifest.json > /dev/null
 
 ## Release workflow
 
-Use [docs/release-checklist.md](docs/release-checklist.md) for pre-release and publishing steps.
+Use [release-checklist.md](release-checklist.md) for pre-release and publishing steps.
