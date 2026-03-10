@@ -131,5 +131,6 @@ def mock_coordinator(mock_config_entry: MagicMock) -> MagicMock:
     coordinator._monthly_battery_savings = {}
     coordinator.battery_monthly_cost = 0.0
     coordinator.battery_total_cost = 0.0
+    coordinator.akkureservihyvitys = 0.0
     coordinator._effective_monthly_cost = MagicMock(return_value=None)
     return coordinator

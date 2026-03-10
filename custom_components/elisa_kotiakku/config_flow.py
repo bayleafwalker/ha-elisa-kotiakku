@@ -31,6 +31,7 @@ from .api import (
     ElisaKotiakkuAuthError,
 )
 from .const import (
+    CONF_AKKURESERVIHYVITYS,
     CONF_API_KEY,
     CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
     CONF_BATTERY_MONTHLY_COST,
@@ -49,6 +50,7 @@ from .const import (
     CONF_STARTUP_BACKFILL_HOURS,
     CONF_TARIFF_MODE,
     CONF_TARIFF_PRESET,
+    DEFAULT_AKKURESERVIHYVITYS,
     DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
     DEFAULT_BATTERY_MONTHLY_COST,
     DEFAULT_BATTERY_TOTAL_COST,
@@ -153,6 +155,17 @@ def _options_data_schema(options: dict[str, Any]) -> vol.Schema:
                     min=0,
                     step="any",
                     unit_of_measurement="EUR",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Required(
+                CONF_AKKURESERVIHYVITYS,
+                default=options[CONF_AKKURESERVIHYVITYS],
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0,
+                    step="any",
+                    unit_of_measurement="EUR/month",
                     mode=NumberSelectorMode.BOX,
                 )
             ),
@@ -344,6 +357,12 @@ def _default_options(options: Mapping[str, Any]) -> dict[str, Any]:
             options.get(
                 CONF_BATTERY_TOTAL_COST,
                 DEFAULT_BATTERY_TOTAL_COST,
+            )
+        ),
+        CONF_AKKURESERVIHYVITYS: float(
+            options.get(
+                CONF_AKKURESERVIHYVITYS,
+                DEFAULT_AKKURESERVIHYVITYS,
             )
         ),
     }

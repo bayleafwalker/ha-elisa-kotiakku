@@ -848,6 +848,9 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
                 effective = self.coordinator._effective_monthly_cost()
                 if effective is not None:
                     attrs["effective_monthly_cost_eur"] = round(effective, 2)
+                attrs["akkureservihyvitys_eur"] = (
+                    self.coordinator.akkureservihyvitys
+                )
                 attrs["basis"] = "linear_interpolation"
 
             if key == "payback_remaining_months":
@@ -857,9 +860,16 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
                 total_savings = self.coordinator.economics_totals.get(
                     "battery_savings", 0.0
                 )
-                attrs["cumulative_savings_eur"] = round(total_savings, 4)
-                attrs["tracked_months"] = len(
+                tracked_months = len(
                     self.coordinator._monthly_battery_savings
+                )
+                attrs["cumulative_savings_eur"] = round(total_savings, 4)
+                attrs["tracked_months"] = tracked_months
+                attrs["akkureservihyvitys_eur"] = (
+                    self.coordinator.akkureservihyvitys
+                )
+                attrs["akkureservi_cumulative_eur"] = round(
+                    self.coordinator.akkureservihyvitys * tracked_months, 2
                 )
 
         if key in _ANALYTICS_SENSOR_KEYS:
