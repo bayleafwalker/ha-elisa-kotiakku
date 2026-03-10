@@ -470,6 +470,22 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         value_fn=lambda c: c.get_current_month_power_fee_estimate(),
     ),
     ElisaKotiakkuCoordinatorSensorDescription(
+        key="monthly_first_day_of_profit",
+        translation_key="monthly_first_day_of_profit",
+        native_unit_of_measurement="d",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        value_fn=lambda c: c.get_monthly_first_day_of_profit(),
+    ),
+    ElisaKotiakkuCoordinatorSensorDescription(
+        key="payback_remaining_months",
+        translation_key="payback_remaining_months",
+        native_unit_of_measurement="months",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda c: c.get_payback_remaining_months(),
+    ),
+    ElisaKotiakkuCoordinatorSensorDescription(
         key="estimated_usable_battery_capacity",
         translation_key="estimated_usable_battery_capacity",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -827,6 +843,24 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
             if key in {"total_power_fee_cost", "current_month_power_fee_estimate"}:
                 attrs["estimate_monotonic_within_month"] = True
                 attrs["decreases_require_rebuild"] = True
+
+            if key == "monthly_first_day_of_profit":
+                effective = self.coordinator._effective_monthly_cost()
+                if effective is not None:
+                    attrs["effective_monthly_cost_eur"] = round(effective, 2)
+                attrs["basis"] = "linear_interpolation"
+
+            if key == "payback_remaining_months":
+                attrs["total_battery_cost_eur"] = (
+                    self.coordinator.battery_total_cost
+                )
+                total_savings = self.coordinator.economics_totals.get(
+                    "battery_savings", 0.0
+                )
+                attrs["cumulative_savings_eur"] = round(total_savings, 4)
+                attrs["tracked_months"] = len(
+                    self.coordinator._monthly_battery_savings
+                )
 
         if key in _ANALYTICS_SENSOR_KEYS:
             if self.coordinator.analytics_last_period_end is None:

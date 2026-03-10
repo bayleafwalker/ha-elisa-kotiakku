@@ -100,6 +100,9 @@ The options flow uses native Home Assistant selectors (dropdowns, number inputs)
   - `power_fee_rate`: monthly demand-fee rate in `EUR/kW/month`.
 - Analytics baseline:
   - `battery_expected_usable_capacity_kwh`: configured usable capacity baseline for heuristic health, cycle, and backup-runtime estimates.
+- Battery cost (payback tracking):
+  - `battery_monthly_cost`: monthly instalment or lease cost in `EUR/month`.
+  - `battery_total_cost`: total battery system cost in `EUR`.
 
 ### Configuration parameters
 
@@ -119,6 +122,8 @@ The options flow uses native Home Assistant selectors (dropdowns, number inputs)
 | Power fee | `power_fee_rule` | No | Options flow | `monthly_top3_all_hours` | Estimated monthly power-fee formula |
 | Power fee | `power_fee_rate` | No | Options flow | `8.50` | Estimated power-fee rate in `EUR/kW/month` |
 | Analytics | `battery_expected_usable_capacity_kwh` | No | Options flow | `10.0` | Configured usable battery capacity baseline for health analytics |
+| Battery cost | `battery_monthly_cost` | No | Options flow | `49.00` | Monthly instalment or lease cost in `EUR/month` |
+| Battery cost | `battery_total_cost` | No | Options flow | `6000.00` | Total battery system cost in `EUR` |
 
 ## Supported devices
 
@@ -238,6 +243,20 @@ Preset behavior:
 - Switch back to `custom` if you want full manual control of transfer prices.
 - The non-Espoo `caruna_*_2026_01` presets are Jan 2026 packaged snapshots backed by the official Caruna Oy residential tariff page effective from `2024-09-01`.
 
+## Battery Payback And Profit Tracking
+
+For batteries purchased with an instalment plan (osamaksu) or lease, the integration can track when monthly savings cover the monthly battery cost, and how long until the total investment is recovered.
+
+Configuration options (in Options flow):
+
+- `battery_monthly_cost`: monthly instalment or lease cost in EUR. Set to `0` to disable or to derive from total cost.
+- `battery_total_cost`: total battery system cost in EUR. Used for payback estimation. If monthly cost is not set, `total_cost / 120` is used as the monthly cost (10-year assumption).
+
+Sensors:
+
+- **Monthly first day of profit**: estimated day-of-month when cumulative battery savings for the current month exceed the monthly battery cost. Uses linear interpolation. Returns `None` when savings have not yet exceeded the cost or when cost is not configured.
+- **Payback remaining months**: estimated months until cumulative battery savings recover the total battery cost. Based on the average monthly savings rate across all tracked months. Returns `0` when savings already exceed total cost; `None` when total cost is not configured or no savings have been recorded.
+
 ## Supported functionality
 
 - Read-only sensors: battery, solar, grid, spot price, cumulative energy, pricing, savings, analytics, and diagnostics
@@ -298,6 +317,8 @@ Preset behavior:
 | Total avoided grid import energy | kWh | Cumulative solar-to-house plus battery-to-house energy |
 | Current month power peak | kW | Qualifying monthly peak demand under the chosen rule |
 | Current month power fee estimate | EUR | Current month estimated power-fee amount |
+| Monthly first day of profit | d | Estimated day of month when savings cover the monthly battery cost |
+| Payback remaining months | months | Estimated months until total battery cost is recovered |
 
 ### Historical analytics sensors
 

@@ -250,6 +250,12 @@
       "economics_processed_periods": {
         "name": "Economics processed periods"
       },
+      "monthly_first_day_of_profit": {
+        "name": "Monthly first day of profit"
+      },
+      "payback_remaining_months": {
+        "name": "Payback remaining months"
+      },
       "grid_import_energy": {
         "name": "Grid import energy"
       },
@@ -277,6 +283,8 @@
         "description": "Configure battery capacity, tariff pricing, and power fee settings. When selecting a tariff preset, the grid transfer fees and tariff mode are automatically applied — you only need to configure retailer margins, taxes, and export fees manually.",
         "data": {
           "battery_expected_usable_capacity_kwh": "Expected usable battery capacity (kWh)",
+          "battery_monthly_cost": "Battery monthly cost (EUR/month)",
+          "battery_total_cost": "Battery total cost (EUR)",
           "startup_backfill_hours": "Startup backfill (hours)",
           "tariff_preset": "Grid transfer tariff preset",
           "tariff_mode": "Tariff pricing mode",
@@ -294,6 +302,8 @@
         },
         "data_description": {
           "battery_expected_usable_capacity_kwh": "Usable capacity of your battery pack in kWh. Used for health, cycle, and backup-runtime estimates. Set to 0 to disable capacity-based analytics.",
+          "battery_monthly_cost": "Monthly battery lease or instalment (osamaksu) cost in EUR. Used to calculate the first profitable day of each month. Set to 0 to disable or use total cost instead.",
+          "battery_total_cost": "Total battery system cost in EUR. Used for payback period estimation. If monthly cost is not set, total cost ÷ 120 is used as the monthly cost.",
           "startup_backfill_hours": "Hours of historical data to import automatically on startup. Set to 0 to disable automatic startup backfill.",
           "tariff_preset": "Select your grid operator's transfer tariff. Presets automatically set the tariff mode and grid transfer fees when saved. All other fields (retailer margins, taxes, export fees) must be configured manually.",
           "tariff_mode": "Controls how import pricing is structured. Automatically set by preset; override only with 'Custom'. 'Spot only' uses only spot price + margin. 'Flat' adds a single transfer fee. 'Day/Night' uses separate fees for 07–22 / 22–07. 'Seasonal Day/Night' uses winter daytime (Nov–Mar, Mon–Sat 07–22) vs other times.",

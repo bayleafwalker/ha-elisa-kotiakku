@@ -118,6 +118,8 @@ class TestCoordinatorSensorDescriptions:
         "total_avoided_grid_import_energy",
         "current_month_power_peak",
         "current_month_power_fee_estimate",
+        "monthly_first_day_of_profit",
+        "payback_remaining_months",
         "estimated_usable_battery_capacity",
         "estimated_battery_health",
         "battery_equivalent_full_cycles",
@@ -143,7 +145,7 @@ class TestCoordinatorSensorDescriptions:
         assert keys == self.EXPECTED_KEYS
 
     def test_count(self) -> None:
-        assert len(COORDINATOR_SENSOR_DESCRIPTIONS) == 43
+        assert len(COORDINATOR_SENSOR_DESCRIPTIONS) == 45
 
     def test_all_have_translation_key(self) -> None:
         for desc in COORDINATOR_SENSOR_DESCRIPTIONS:

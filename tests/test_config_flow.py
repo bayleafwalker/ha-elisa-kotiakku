@@ -20,6 +20,8 @@ from custom_components.elisa_kotiakku.config_flow import (
 from custom_components.elisa_kotiakku.const import (
     CONF_API_KEY,
     CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+    CONF_BATTERY_MONTHLY_COST,
+    CONF_BATTERY_TOTAL_COST,
     CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
     CONF_DAY_IMPORT_RETAILER_MARGIN,
     CONF_ELECTRICITY_TAX_FEE,
@@ -35,6 +37,8 @@ from custom_components.elisa_kotiakku.const import (
     CONF_TARIFF_MODE,
     CONF_TARIFF_PRESET,
     DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+    DEFAULT_BATTERY_MONTHLY_COST,
+    DEFAULT_BATTERY_TOTAL_COST,
     DEFAULT_DAY_GRID_IMPORT_TRANSFER_FEE,
     DEFAULT_DAY_IMPORT_RETAILER_MARGIN,
     DEFAULT_ELECTRICITY_TAX_FEE,
@@ -141,6 +145,8 @@ def _expected_default_options() -> dict[str, float | int | str]:
         CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: (
             DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH
         ),
+        CONF_BATTERY_MONTHLY_COST: DEFAULT_BATTERY_MONTHLY_COST,
+        CONF_BATTERY_TOTAL_COST: DEFAULT_BATTERY_TOTAL_COST,
     }
 
 
@@ -610,6 +616,8 @@ class TestOptionsFlow:
             CONF_POWER_FEE_RULE: POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
             CONF_POWER_FEE_RATE: 8.5,
             CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: 10.2,
+            CONF_BATTERY_MONTHLY_COST: 0.0,
+            CONF_BATTERY_TOTAL_COST: 0.0,
         }
         options_flow = ElisaKotiakkuOptionsFlow(entry)
         options_flow.async_show_form = MagicMock(return_value={"type": "form"})
@@ -666,6 +674,8 @@ class TestOptionsFlow:
                 CONF_POWER_FEE_RULE: POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
                 CONF_POWER_FEE_RATE: 9.1,
                 CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: 12.5,
+                CONF_BATTERY_MONTHLY_COST: 49.0,
+                CONF_BATTERY_TOTAL_COST: 5000.0,
             }
         )
 
@@ -688,6 +698,8 @@ class TestOptionsFlow:
                 CONF_POWER_FEE_RULE: POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
                 CONF_POWER_FEE_RATE: 9.1,
                 CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: 12.5,
+                CONF_BATTERY_MONTHLY_COST: 49.0,
+                CONF_BATTERY_TOTAL_COST: 5000.0,
             },
         )
 

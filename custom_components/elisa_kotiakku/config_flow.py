@@ -33,6 +33,8 @@ from .api import (
 from .const import (
     CONF_API_KEY,
     CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+    CONF_BATTERY_MONTHLY_COST,
+    CONF_BATTERY_TOTAL_COST,
     CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
     CONF_DAY_IMPORT_RETAILER_MARGIN,
     CONF_ELECTRICITY_TAX_FEE,
@@ -48,6 +50,8 @@ from .const import (
     CONF_TARIFF_MODE,
     CONF_TARIFF_PRESET,
     DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+    DEFAULT_BATTERY_MONTHLY_COST,
+    DEFAULT_BATTERY_TOTAL_COST,
     DEFAULT_DAY_GRID_IMPORT_TRANSFER_FEE,
     DEFAULT_DAY_IMPORT_RETAILER_MARGIN,
     DEFAULT_ELECTRICITY_TAX_FEE,
@@ -126,6 +130,29 @@ def _options_data_schema(options: dict[str, Any]) -> vol.Schema:
                     min=0,
                     step="any",
                     unit_of_measurement="kWh",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
+            # ── Battery cost ─────────────────────────────────────────
+            vol.Required(
+                CONF_BATTERY_MONTHLY_COST,
+                default=options[CONF_BATTERY_MONTHLY_COST],
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0,
+                    step="any",
+                    unit_of_measurement="EUR/month",
+                    mode=NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Required(
+                CONF_BATTERY_TOTAL_COST,
+                default=options[CONF_BATTERY_TOTAL_COST],
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=0,
+                    step="any",
+                    unit_of_measurement="EUR",
                     mode=NumberSelectorMode.BOX,
                 )
             ),
@@ -305,6 +332,18 @@ def _default_options(options: Mapping[str, Any]) -> dict[str, Any]:
             options.get(
                 CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
                 DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+            )
+        ),
+        CONF_BATTERY_MONTHLY_COST: float(
+            options.get(
+                CONF_BATTERY_MONTHLY_COST,
+                DEFAULT_BATTERY_MONTHLY_COST,
+            )
+        ),
+        CONF_BATTERY_TOTAL_COST: float(
+            options.get(
+                CONF_BATTERY_TOTAL_COST,
+                DEFAULT_BATTERY_TOTAL_COST,
             )
         ),
     }

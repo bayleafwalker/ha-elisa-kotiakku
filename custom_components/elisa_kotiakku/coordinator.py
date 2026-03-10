@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -22,7 +23,11 @@ from .api import (
 )
 from .const import (
     CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+    CONF_BATTERY_MONTHLY_COST,
+    CONF_BATTERY_TOTAL_COST,
     DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
+    DEFAULT_BATTERY_MONTHLY_COST,
+    DEFAULT_BATTERY_TOTAL_COST,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     ECONOMICS_ATTRIBUTION_SKIP_KEYS,
@@ -67,6 +72,18 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
                 DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
             )
         )
+        self.battery_monthly_cost = float(
+            config_entry.options.get(
+                CONF_BATTERY_MONTHLY_COST,
+                DEFAULT_BATTERY_MONTHLY_COST,
+            )
+        )
+        self.battery_total_cost = float(
+            config_entry.options.get(
+                CONF_BATTERY_TOTAL_COST,
+                DEFAULT_BATTERY_TOTAL_COST,
+            )
+        )
 
         self.energy_totals: dict[str, float] = {
             key: 0.0 for key in ENERGY_TOTAL_KEYS
@@ -92,6 +109,7 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         ] = {}
         self._baseline_power_fee_monthly_estimates: dict[str, float] = {}
         self._attribution_skipped_window_counts: dict[str, int] = {}
+        self._monthly_battery_savings: dict[str, float] = {}
         self._reset_economics_runtime()
         self._economics_store: Store[dict[str, Any]] = Store(
             hass,
@@ -182,6 +200,9 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         self._attribution_skipped_window_counts = _load_int_map(
             stored.get("attribution_skipped_window_counts"),
             allowed_keys=ECONOMICS_ATTRIBUTION_SKIP_KEYS,
+        )
+        self._monthly_battery_savings = _load_float_map(
+            stored.get("monthly_battery_savings")
         )
 
     async def async_load_analytics_state(self) -> None:
@@ -405,6 +426,97 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
             return None
         return round(self._power_fee_monthly_estimates.get(month_key, 0.0), 6)
 
+    def get_monthly_first_day_of_profit(self) -> int | None:
+        """Return estimated first profitable day of the current month.
+
+        The monthly battery cost is compared against cumulative battery savings
+        for the current month.  If no monthly cost is configured but a total
+        cost is set, the monthly cost is derived as total_cost / 12 / number
+        of payback years (simplified to total_cost / 120 for a 10-year
+        horizon — matching a typical osamaksu agreement).
+
+        Returns the day-of-month (1-31) when savings exceed the monthly cost,
+        or ``None`` when there is no cost configured, no data yet, or savings
+        have not yet exceeded the cost this month.
+        """
+        monthly_cost = self._effective_monthly_cost()
+        if monthly_cost is None or monthly_cost <= 0:
+            return None
+
+        month_key = self._current_measurement_month_key()
+        if month_key is None:
+            return None
+
+        month_savings = self._monthly_battery_savings.get(month_key, 0.0)
+        if month_savings <= 0:
+            return None
+
+        # Use latest measurement timestamp for day-of-month context.
+        if self.data is None:
+            return None
+        timestamp = _measurement_timestamp(self.data)
+        if timestamp is None:
+            return None
+
+        current_day = timestamp.day
+        if current_day == 0:
+            return None
+
+        # Linear interpolation: at which day did savings exceed cost?
+        # daily_saving_rate = month_savings / current_day
+        # breakeven_day = monthly_cost / daily_saving_rate
+        daily_rate = month_savings / current_day
+        if daily_rate <= 0:
+            return None
+
+        breakeven_day = monthly_cost / daily_rate
+
+        days_in_month = calendar.monthrange(timestamp.year, timestamp.month)[1]
+
+        if breakeven_day > days_in_month:
+            return None
+
+        return max(1, min(int(breakeven_day) + 1, days_in_month))
+
+    def get_payback_remaining_months(self) -> float | None:
+        """Return estimated months until battery cost is fully paid off.
+
+        Uses lifetime cumulative battery_savings to project how quickly the
+        total battery cost will be recovered.  Returns ``None`` when total
+        cost is not configured or no savings have accrued yet.
+        """
+        total_cost = self.battery_total_cost
+        if total_cost <= 0:
+            return None
+
+        total_savings = self.economics_totals.get("battery_savings", 0.0)
+        if total_savings <= 0:
+            return None
+
+        remaining = total_cost - total_savings
+        if remaining <= 0:
+            return 0.0
+
+        # Estimate monthly rate from total savings over tracked months.
+        tracked_months = len(self._monthly_battery_savings)
+        if tracked_months == 0:
+            return None
+
+        avg_monthly = total_savings / tracked_months
+        if avg_monthly <= 0:
+            return None
+
+        return round(remaining / avg_monthly, 1)
+
+    def _effective_monthly_cost(self) -> float | None:
+        """Return configured monthly cost, deriving from total if needed."""
+        if self.battery_monthly_cost > 0:
+            return self.battery_monthly_cost
+        if self.battery_total_cost > 0:
+            # Default assumption: 10-year payback period (120 months)
+            return self.battery_total_cost / 120.0
+        return None
+
     def get_economics_debug_value(self, key: str) -> float | int | None:
         """Return a coordinator debug value exposed as a sensor."""
         if key == "skipped_savings_windows":
@@ -476,6 +588,7 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         self._attribution_skipped_window_counts = {
             key: 0 for key in ECONOMICS_ATTRIBUTION_SKIP_KEYS
         }
+        self._monthly_battery_savings = {}
 
     def _is_unprocessed_energy_period(self, period_end: str) -> bool:
         """Return True if this period is not yet included in energy totals."""
@@ -656,11 +769,17 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
             monthly_peaks=None,
         )
 
-        self.economics_totals["battery_savings"] += (
+        savings_delta = (
             baseline_net_site_cost
             + baseline_power_fee_delta
             - net_site_cost
             - power_fee_delta
+        )
+        self.economics_totals["battery_savings"] += savings_delta
+
+        month_key = timestamp.strftime("%Y-%m")
+        self._monthly_battery_savings[month_key] = (
+            self._monthly_battery_savings.get(month_key, 0.0) + savings_delta
         )
 
     def _process_measurement_value_attribution(
@@ -807,6 +926,7 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
                 "attribution_skipped_window_counts": (
                     self._attribution_skipped_window_counts
                 ),
+                "monthly_battery_savings": self._monthly_battery_savings,
             }
         )
 
