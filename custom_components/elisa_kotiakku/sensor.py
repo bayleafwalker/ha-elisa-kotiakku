@@ -489,7 +489,6 @@ COORDINATOR_SENSOR_DESCRIPTIONS: tuple[
         key="estimated_usable_battery_capacity",
         translation_key="estimated_usable_battery_capacity",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=2,
         value_fn=lambda c: c.get_analytics_value(
