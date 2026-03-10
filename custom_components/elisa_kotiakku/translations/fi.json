@@ -250,6 +250,12 @@
       "economics_processed_periods": {
         "name": "Käsitellyt talousikkunat"
       },
+      "monthly_first_day_of_profit": {
+        "name": "Kuukauden ensimmäinen tuottopäivä"
+      },
+      "payback_remaining_months": {
+        "name": "Takaisinmaksuaika jäljellä"
+      },
       "grid_import_energy": {
         "name": "Verkko-oston energia"
       },
@@ -277,6 +283,8 @@
         "description": "Määritä akun kapasiteetti, tariffihinnoittelu ja tehomaksuasetukset. Kun valitset tariffiesiasetuksen, siirtomaksut ja tariffitila asetetaan automaattisesti — sinun tarvitsee määrittää vain myyntikatteet, verot ja vientimaksut käsin.",
         "data": {
           "battery_expected_usable_capacity_kwh": "Akun odotettu käytettävä kapasiteetti (kWh)",
+          "battery_monthly_cost": "Akun kuukausimaksu (EUR/kk)",
+          "battery_total_cost": "Akun kokonaishinta (EUR)",
           "startup_backfill_hours": "Käynnistyksen backfill (tuntia)",
           "tariff_preset": "Siirtotariffin esiasetus",
           "tariff_mode": "Tariffin hinnoittelutila",
@@ -294,6 +302,8 @@
         },
         "data_description": {
           "battery_expected_usable_capacity_kwh": "Akkupaketin käytettävä kapasiteetti kWh:na. Käytetään kuntoarvion, syklilaskennan ja varakäyttöajan perusarvona. Aseta 0 poistaaksesi kapasiteettipohjaiset analytiikat.",
+          "battery_monthly_cost": "Akun osamaksu tai kuukausivuokra euroina. Käytetään kuukauden ensimmäisen tuottopäivän laskemiseen. Aseta 0 poistaaksesi tai käyttääksesi kokonaishintaa.",
+          "battery_total_cost": "Akkujärjestelmän kokonaishinta euroina. Käytetään takaisinmaksuajan arviointiin. Jos kuukausimaksua ei ole asetettu, kokonaishinta ÷ 120 käytetään kuukausikustannuksena.",
           "startup_backfill_hours": "Kuinka monta tuntia historiallista dataa haetaan automaattisesti käynnistyksen yhteydessä. Aseta 0 poistaaksesi automaattisen backfillin.",
           "tariff_preset": "Valitse verkko-operaattorisi siirtotariffi. Esiasetukset asettavat automaattisesti tariffitilan ja siirtomaksut tallennettaessa. Muut kentät (myyntikatteet, verot, vientimaksut) on määritettävä käsin.",
           "tariff_mode": "Määrittää ostopuolen hinnoittelurakenteen. Asetetaan automaattisesti esiasetuksella; muuta vain 'Mukautettu'-tilassa. 'Vain spot' käyttää vain spot-hintaa + katetta. 'Kiinteä' lisää yhden siirtomaksun. 'Päivä/Yö' käyttää erillisiä maksuja 07–22 / 22–07. 'Kausipäivä/Yö' käyttää talven päiväaikaa (marras–maalis, ma–la 07–22) vs muut ajat.",

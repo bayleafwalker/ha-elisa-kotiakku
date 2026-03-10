@@ -22,6 +22,8 @@ CONF_POWER_FEE_RATE = "power_fee_rate"
 CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH = (
     "battery_expected_usable_capacity_kwh"
 )
+CONF_BATTERY_MONTHLY_COST = "battery_monthly_cost"
+CONF_BATTERY_TOTAL_COST = "battery_total_cost"
 
 API_BASE_URL = "https://residential.gridle.com/api/public"
 API_MEASUREMENTS_URL = f"{API_BASE_URL}/measurements"
@@ -95,6 +97,8 @@ DEFAULT_NIGHT_GRID_IMPORT_TRANSFER_FEE = 0.0
 DEFAULT_POWER_FEE_RULE = POWER_FEE_RULE_NONE
 DEFAULT_POWER_FEE_RATE = 0.0
 DEFAULT_BATTERY_EXPECTED_USABLE_CAPACITY_KWH = 0.0
+DEFAULT_BATTERY_MONTHLY_COST = 0.0
+DEFAULT_BATTERY_TOTAL_COST = 0.0
 
 ENERGY_TOTAL_KEYS: tuple[str, ...] = (
     "grid_import_energy",
