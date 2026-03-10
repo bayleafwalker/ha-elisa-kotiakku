@@ -38,12 +38,16 @@ from custom_components.elisa_kotiakku.const import (
 )
 from custom_components.elisa_kotiakku.coordinator import (
     ElisaKotiakkuCoordinator,
+    _measurement_timestamp,
+    _parse_iso8601,
+)
+from custom_components.elisa_kotiakku.economics_engine import (
     _load_float_map,
     _load_hour_bucket_store,
     _load_int_map,
-    _measurement_duration_hours,
-    _measurement_timestamp,
-    _parse_iso8601,
+)
+from custom_components.elisa_kotiakku.util import (
+    measurement_duration_hours as _measurement_duration_hours,
 )
 
 from .conftest import SAMPLE_MEASUREMENT
@@ -439,7 +443,10 @@ class TestBackfillAndPersistence:
         await coordinator.async_load_energy_state()
 
         assert coordinator.get_energy_total("grid_import_energy") == 12.5
-        assert coordinator.energy_last_period_end == "2025-12-17T01:00:00+02:00"
+        assert (
+            coordinator.get_energy_last_period_end()
+            == "2025-12-17T01:00:00+02:00"
+        )
         assert coordinator.energy_processed_period_count == 1
 
     async def test_load_state_ignores_non_mapping_payloads(
@@ -513,9 +520,12 @@ class TestBackfillAndPersistence:
         assert coordinator.get_economics_total("purchase_cost") == 12.5
         assert coordinator.get_economics_total("electricity_tax_cost") == 1.75
         assert coordinator.get_economics_total("solar_used_in_house_value") == 2.25
-        assert coordinator.economics_last_period_end == "2025-12-17T01:00:00+02:00"
+        assert (
+            coordinator.get_economics_last_period_end()
+            == "2025-12-17T01:00:00+02:00"
+        )
         assert coordinator.economics_processed_period_count == 1
-        assert coordinator.skipped_savings_window_count == 2
+        assert coordinator.get_skipped_savings_window_count() == 2
         assert (
             coordinator.get_attribution_skipped_window_count(
                 "solar_used_in_house_value"
@@ -866,7 +876,7 @@ class TestEconomicsMath:
             (4.4135 / 12) * 1.87 / 100, rel=0, abs=1e-6
         )
         assert coordinator.get_economics_total("battery_savings") == 0.0
-        assert coordinator.skipped_savings_window_count == 1
+        assert coordinator.get_skipped_savings_window_count() == 1
 
     async def test_missing_directional_flow_skips_only_affected_attribution_total(
         self,
@@ -1175,7 +1185,7 @@ class TestEnergyHelpers:
         assert coordinator.get_energy_total("nonexistent_key") is None
         assert coordinator.get_economics_total("nonexistent_key") is None
 
-    def test_update_last_period_end_ignores_older_period(
+    def test_energy_store_update_last_period_end_ignores_older_period(
         self,
         mock_hass: MagicMock,
         mock_api_client: AsyncMock,
@@ -1184,11 +1194,15 @@ class TestEnergyHelpers:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        coordinator.energy_last_period_end = "2025-12-17T01:00:00+02:00"
+        coordinator._energy_state.last_period_end = "2025-12-17T01:00:00+02:00"
+        coordinator._energy_state.update_last_period_end(
+            "2025-12-17T00:00:00+02:00"
+        )
 
-        coordinator._update_last_period_end("energy", "2025-12-17T00:00:00+02:00")
-
-        assert coordinator.energy_last_period_end == "2025-12-17T01:00:00+02:00"
+        assert (
+            coordinator.get_energy_last_period_end()
+            == "2025-12-17T01:00:00+02:00"
+        )
 
     def test_parse_iso8601_returns_none_for_invalid_string(self) -> None:
         assert _parse_iso8601("not-a-date") is None
@@ -1282,7 +1296,7 @@ class TestEnergyHelpers:
         )
         assert coordinator.get_analytics_value("estimated_backup_runtime_hours") == 2.25
 
-    def test_update_last_period_end_and_live_measurement_fallbacks(
+    def test_economics_mark_processed_and_live_measurement_fallbacks(
         self,
         mock_hass: MagicMock,
         mock_api_client: AsyncMock,
@@ -1292,8 +1306,8 @@ class TestEnergyHelpers:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        coordinator._update_last_period_end("economics", "invalid-a")
-        coordinator._update_last_period_end("economics", "invalid-b")
+        coordinator._economics_state.mark_processed("invalid-a")
+        coordinator._economics_state.mark_processed("invalid-b")
         coordinator._maybe_update_live_measurement(
             replace(SAMPLE_MEASUREMENT, period_end="invalid-a")
         )
@@ -1301,7 +1315,7 @@ class TestEnergyHelpers:
             replace(SAMPLE_MEASUREMENT, period_end="invalid-b")
         )
 
-        assert coordinator.economics_last_period_end == "invalid-b"
+        assert coordinator.get_economics_last_period_end() == "invalid-b"
         assert coordinator.data is not None
         assert coordinator.data.period_end == "invalid-b"
 
@@ -1321,11 +1335,15 @@ class TestEnergyHelpers:
         coordinator._energy_store.async_save = AsyncMock()
         coordinator._economics_store.async_save = AsyncMock()
         coordinator._analytics_store.async_save = AsyncMock()
-        coordinator.energy_totals["grid_import_energy"] = 1.5
-        coordinator.energy_last_period_end = "2025-12-17T00:05:00+02:00"
-        coordinator._processed_energy_period_ends.add("2025-12-17T00:05:00+02:00")
-        coordinator.economics_totals["purchase_cost"] = 2.5
-        coordinator.economics_last_period_end = "2025-12-17T00:05:00+02:00"
+        coordinator._energy_state.totals["grid_import_energy"] = 1.5
+        coordinator._energy_state.last_period_end = "2025-12-17T00:05:00+02:00"
+        coordinator._energy_state.processed_period_ends.add(
+            "2025-12-17T00:05:00+02:00"
+        )
+        coordinator._economics_state.totals["purchase_cost"] = 2.5
+        coordinator._economics_state.last_period_end = (
+            "2025-12-17T00:05:00+02:00"
+        )
         coordinator.analytics_state.mark_processed("2025-12-17T00:05:00+02:00")
 
         await coordinator._async_save_energy_state()

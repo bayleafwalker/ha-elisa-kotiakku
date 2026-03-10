@@ -484,6 +484,12 @@ More examples: [docs/automation-examples.yaml](docs/automation-examples.yaml)
 - Economics look wrong after changing tariff options: run `elisa_kotiakku.rebuild_economics` for the desired history window
 - Slow updates after throttling: temporary rate-limit backoff is active
 
+## Development
+
+Developer ergonomics and local contributor workflows are documented in [docs/development.md](docs/development.md).
+
+Release process and pre-release validation are documented in [docs/release-checklist.md](docs/release-checklist.md).
+
 ## Removal instructions
 
 1. Open **Settings -> Devices & Services**.

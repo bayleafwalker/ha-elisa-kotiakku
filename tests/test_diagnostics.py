@@ -97,12 +97,12 @@ class TestDiagnostics:
         self, mock_entry_with_coordinator: MagicMock
     ) -> None:
         """Energy totals and last period should be included."""
-        mock_entry_with_coordinator.runtime_data.energy_totals = {
-            "grid_import_energy": 1.23
-        }
-        mock_entry_with_coordinator.runtime_data.energy_last_period_end = (
-            "2025-12-17T00:05:00+02:00"
-        )
+        (
+            mock_entry_with_coordinator.runtime_data.get_energy_totals.return_value
+        ) = {"grid_import_energy": 1.23}
+        (
+            mock_entry_with_coordinator.runtime_data.get_energy_last_period_end.return_value
+        ) = "2025-12-17T00:05:00+02:00"
 
         hass = MagicMock()
         result = await async_get_config_entry_diagnostics(
@@ -118,14 +118,16 @@ class TestDiagnostics:
     ) -> None:
         """Economics totals and fee state should be included."""
         mock_entry_with_coordinator.options = {"tariff_mode": "flat"}
-        mock_entry_with_coordinator.runtime_data.economics_totals = {
-            "purchase_cost": 4.56
-        }
-        mock_entry_with_coordinator.runtime_data.economics_last_period_end = (
-            "2025-12-17T00:05:00+02:00"
-        )
+        (
+            mock_entry_with_coordinator.runtime_data.get_economics_totals.return_value
+        ) = {"purchase_cost": 4.56}
+        (
+            mock_entry_with_coordinator.runtime_data.get_economics_last_period_end.return_value
+        ) = "2025-12-17T00:05:00+02:00"
         mock_entry_with_coordinator.runtime_data.economics_processed_period_count = 2
-        mock_entry_with_coordinator.runtime_data.skipped_savings_window_count = 1
+        (
+            mock_entry_with_coordinator.runtime_data.get_skipped_savings_window_count.return_value
+        ) = 1
         (
             mock_entry_with_coordinator.runtime_data.get_attribution_skipped_window_counts.return_value
         ) = {

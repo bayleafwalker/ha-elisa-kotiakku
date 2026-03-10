@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from custom_components.elisa_kotiakku.const import (
     CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
     CONF_ELECTRICITY_TAX_FEE,
@@ -211,8 +213,6 @@ def test_normalize_tariff_options_keeps_unknown_preset_unchanged() -> None:
     assert normalized[CONF_GRID_IMPORT_TRANSFER_FEE] == 7.5
 
 
-def _dt(value: str):
+def _dt(value: str) -> datetime:
     """Parse ISO datetime for tariff tests."""
-    from datetime import datetime
-
     return datetime.fromisoformat(value)

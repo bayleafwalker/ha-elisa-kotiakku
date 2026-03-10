@@ -258,7 +258,7 @@ class TestElisaKotiakkuEnergySensor:
     def test_extra_state_attributes_none_without_period_end(
         self, mock_coordinator: MagicMock
     ) -> None:
-        mock_coordinator.energy_last_period_end = None
+        mock_coordinator.get_energy_last_period_end = MagicMock(return_value=None)
         sensor = self._make_sensor(mock_coordinator)
         assert sensor.extra_state_attributes is None
 
@@ -355,8 +355,10 @@ class TestElisaKotiakkuCoordinatorSensor:
     def test_battery_savings_attributes_include_skip_count(
         self, mock_coordinator: MagicMock
     ) -> None:
-        mock_coordinator.economics_last_period_end = "2025-12-17T00:05:00+02:00"
-        mock_coordinator.skipped_savings_window_count = 3
+        mock_coordinator.get_economics_last_period_end = MagicMock(
+            return_value="2025-12-17T00:05:00+02:00"
+        )
+        mock_coordinator.get_skipped_savings_window_count = MagicMock(return_value=3)
         mock_coordinator.tariff_config.power_fee_rule = "monthly_max_all_hours"
         mock_coordinator.get_active_tariff_rates.return_value = _SAMPLE_ACTIVE_RATES
         sensor = self._make_sensor(mock_coordinator, "total_battery_savings")
@@ -372,7 +374,9 @@ class TestElisaKotiakkuCoordinatorSensor:
     def test_power_fee_estimate_attributes_explain_monotonic_behavior(
         self, mock_coordinator: MagicMock
     ) -> None:
-        mock_coordinator.economics_last_period_end = "2025-12-17T00:05:00+02:00"
+        mock_coordinator.get_economics_last_period_end = MagicMock(
+            return_value="2025-12-17T00:05:00+02:00"
+        )
         sensor = self._make_sensor(mock_coordinator, "current_month_power_fee_estimate")
         assert sensor.extra_state_attributes == {
             "last_period_end": "2025-12-17T00:05:00+02:00",
@@ -403,7 +407,9 @@ class TestElisaKotiakkuCoordinatorSensor:
     def test_solar_direct_use_value_attributes_include_basis_and_skip_count(
         self, mock_coordinator: MagicMock
     ) -> None:
-        mock_coordinator.economics_last_period_end = "2025-12-17T00:05:00+02:00"
+        mock_coordinator.get_economics_last_period_end = MagicMock(
+            return_value="2025-12-17T00:05:00+02:00"
+        )
         mock_coordinator.tariff_config.power_fee_rule = "monthly_max_all_hours"
         mock_coordinator.get_attribution_skipped_window_count = MagicMock(
             return_value=2
@@ -428,7 +434,9 @@ class TestElisaKotiakkuCoordinatorSensor:
     def test_battery_house_supply_value_attributes_explain_interpretation(
         self, mock_coordinator: MagicMock
     ) -> None:
-        mock_coordinator.economics_last_period_end = "2025-12-17T00:05:00+02:00"
+        mock_coordinator.get_economics_last_period_end = MagicMock(
+            return_value="2025-12-17T00:05:00+02:00"
+        )
         mock_coordinator.get_attribution_skipped_window_count = MagicMock(
             return_value=1
         )
@@ -448,7 +456,9 @@ class TestElisaKotiakkuCoordinatorSensor:
     def test_solar_export_value_attributes_exclude_electricity_tax(
         self, mock_coordinator: MagicMock
     ) -> None:
-        mock_coordinator.economics_last_period_end = "2025-12-17T00:05:00+02:00"
+        mock_coordinator.get_economics_last_period_end = MagicMock(
+            return_value="2025-12-17T00:05:00+02:00"
+        )
         mock_coordinator.get_attribution_skipped_window_count = MagicMock(
             return_value=4
         )
@@ -476,7 +486,7 @@ class TestElisaKotiakkuCoordinatorSensor:
     def test_economics_sensor_attributes_none_without_period_end(
         self, mock_coordinator: MagicMock
     ) -> None:
-        mock_coordinator.economics_last_period_end = None
+        mock_coordinator.get_economics_last_period_end = MagicMock(return_value=None)
         sensor = self._make_sensor(mock_coordinator, "total_purchase_cost")
         assert sensor.extra_state_attributes is None
 

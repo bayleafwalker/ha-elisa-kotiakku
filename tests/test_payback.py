@@ -254,7 +254,9 @@ class TestMonthlyFirstDayOfProfit:
         await coordinator.async_process_measurements(measurements, notify=False)
 
         # Savings should accrue for the month
-        month_savings = coordinator._monthly_battery_savings.get("2025-12", 0.0)
+        month_savings = coordinator._economics_state.monthly_battery_savings.get(
+            "2025-12", 0.0
+        )
         assert month_savings != 0.0
 
         result = coordinator.get_monthly_first_day_of_profit()
@@ -274,7 +276,7 @@ class TestMonthlyFirstDayOfProfit:
         )
         # Set up data but no savings
         coordinator.data = SAMPLE_MEASUREMENT
-        coordinator._monthly_battery_savings = {"2025-12": 0.0}
+        coordinator._economics_state.monthly_battery_savings = {"2025-12": 0.0}
         assert coordinator.get_monthly_first_day_of_profit() is None
 
     def test_returns_none_when_breakeven_beyond_month(
@@ -289,7 +291,9 @@ class TestMonthlyFirstDayOfProfit:
         )
         coordinator.data = SAMPLE_MEASUREMENT
         # Very small savings, huge cost — breakeven beyond month end
-        coordinator._monthly_battery_savings = {"2025-12": 0.50}
+        coordinator._economics_state.monthly_battery_savings = {
+            "2025-12": 0.50
+        }
         result = coordinator.get_monthly_first_day_of_profit()
         assert result is None
 
@@ -307,7 +311,9 @@ class TestMonthlyFirstDayOfProfit:
             mock_hass, mock_api_client, mock_config_entry
         )
         coordinator.data = SAMPLE_MEASUREMENT  # day=17 of December
-        coordinator._monthly_battery_savings = {"2025-12": 20.0}
+        coordinator._economics_state.monthly_battery_savings = {
+            "2025-12": 20.0
+        }
         # cost per month = 1200/120 = 10.0
         # daily_rate = 20/17 ≈ 1.176
         # breakeven_day = 10.0 / 1.176 ≈ 8.5 → day 9
@@ -330,7 +336,9 @@ class TestMonthlyFirstDayOfProfit:
             mock_hass, mock_api_client, mock_config_entry
         )
         coordinator.data = SAMPLE_MEASUREMENT
-        coordinator._monthly_battery_savings = {"2025-12": 1.0}
+        coordinator._economics_state.monthly_battery_savings = {
+            "2025-12": 1.0
+        }
         result = coordinator.get_monthly_first_day_of_profit()
         assert result == 1
 
@@ -372,8 +380,8 @@ class TestPaybackRemainingMonths:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        coordinator.economics_totals["battery_savings"] = 1000.0
-        coordinator._monthly_battery_savings = {
+        coordinator._economics_state.totals["battery_savings"] = 1000.0
+        coordinator._economics_state.monthly_battery_savings = {
             "2025-10": 250.0,
             "2025-11": 350.0,
             "2025-12": 400.0,
@@ -394,8 +402,10 @@ class TestPaybackRemainingMonths:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        coordinator.economics_totals["battery_savings"] = 6000.0
-        coordinator._monthly_battery_savings = {"2025-12": 6000.0}
+        coordinator._economics_state.totals["battery_savings"] = 6000.0
+        coordinator._economics_state.monthly_battery_savings = {
+            "2025-12": 6000.0
+        }
         result = coordinator.get_payback_remaining_months()
         assert result == 0.0
 
@@ -409,8 +419,8 @@ class TestPaybackRemainingMonths:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        coordinator.economics_totals["battery_savings"] = 100.0
-        coordinator._monthly_battery_savings = {}
+        coordinator._economics_state.totals["battery_savings"] = 100.0
+        coordinator._economics_state.monthly_battery_savings = {}
         result = coordinator.get_payback_remaining_months()
         assert result is None
 
@@ -428,8 +438,8 @@ class TestPaybackRemainingMonths:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        coordinator.economics_totals["battery_savings"] = 900.0
-        coordinator._monthly_battery_savings = {
+        coordinator._economics_state.totals["battery_savings"] = 900.0
+        coordinator._economics_state.monthly_battery_savings = {
             "2025-10": 250.0,
             "2025-11": 300.0,
             "2025-12": 350.0,
@@ -458,8 +468,8 @@ class TestPaybackRemainingMonths:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        coordinator.economics_totals["battery_savings"] = 950.0
-        coordinator._monthly_battery_savings = {
+        coordinator._economics_state.totals["battery_savings"] = 950.0
+        coordinator._economics_state.monthly_battery_savings = {
             f"2025-{m:02d}": 50.0 for m in range(1, 13)
         }
         # retroactive = 10 * 12 = 120
@@ -469,7 +479,7 @@ class TestPaybackRemainingMonths:
 
 
 class TestMonthlySavingsTracking:
-    """Tests that monthly savings are tracked in _monthly_battery_savings."""
+    """Tests that monthly savings are tracked in economics state."""
 
     async def test_savings_accumulated_by_month(
         self,
@@ -491,7 +501,7 @@ class TestMonthlySavingsTracking:
         )
         await coordinator.async_process_measurements([m1], notify=False)
 
-        assert "2025-12" in coordinator._monthly_battery_savings
+        assert "2025-12" in coordinator._economics_state.monthly_battery_savings
 
     async def test_savings_persisted_in_economics_state(
         self,

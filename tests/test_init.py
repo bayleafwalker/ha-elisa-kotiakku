@@ -17,7 +17,6 @@ from custom_components.elisa_kotiakku import (
     _async_register_rebuild_economics_service,
     _async_update_listener,
     _ensure_timezone,
-    _has_loaded_entries,
     _loaded_entries,
     _resolve_backfill_range,
     async_setup,
@@ -589,14 +588,14 @@ def test_loaded_entries_filters_by_state_and_runtime_data() -> None:
     assert _loaded_entries(hass) == [good_entry]
 
 
-def test_has_loaded_entries_reflects_loaded_entry_presence() -> None:
-    """Loaded-entry helper should map empty and non-empty entry lists to bools."""
+def test_loaded_entries_can_be_used_as_presence_check() -> None:
+    """Loaded entries list naturally supports bool-style presence checks."""
     hass = MagicMock()
+    hass.config_entries.async_entries.return_value = []
+    assert bool(_loaded_entries(hass)) is False
 
-    with patch("custom_components.elisa_kotiakku._loaded_entries", return_value=[]):
-        assert _has_loaded_entries(hass) is False
-    with patch(
-        "custom_components.elisa_kotiakku._loaded_entries",
-        return_value=[MagicMock()],
-    ):
-        assert _has_loaded_entries(hass) is True
+    loaded_entry = MagicMock()
+    loaded_entry.state = ConfigEntryState.LOADED
+    loaded_entry.runtime_data = MagicMock()
+    hass.config_entries.async_entries.return_value = [loaded_entry]
+    assert bool(_loaded_entries(hass)) is True

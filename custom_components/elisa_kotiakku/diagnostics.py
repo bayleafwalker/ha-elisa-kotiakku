@@ -33,16 +33,16 @@ async def async_get_config_entry_diagnostics(
         "config": config_data,
         "options": dict(entry.options),
         "latest_measurement": measurement,
-        "energy_totals": coordinator.energy_totals,
-        "energy_last_period_end": coordinator.energy_last_period_end,
+        "energy_totals": coordinator.get_energy_totals(),
+        "energy_last_period_end": coordinator.get_energy_last_period_end(),
         "energy_processed_period_count": coordinator.energy_processed_period_count,
-        "economics_totals": coordinator.economics_totals,
-        "economics_last_period_end": coordinator.economics_last_period_end,
+        "economics_totals": coordinator.get_economics_totals(),
+        "economics_last_period_end": coordinator.get_economics_last_period_end(),
         "economics_processed_period_count": (
             coordinator.economics_processed_period_count
         ),
         "skipped_savings_window_count": (
-            coordinator.skipped_savings_window_count
+            coordinator.get_skipped_savings_window_count()
         ),
         "attribution_skipped_window_counts": (
             coordinator.get_attribution_skipped_window_counts()

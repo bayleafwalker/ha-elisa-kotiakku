@@ -99,15 +99,19 @@ def mock_coordinator(mock_config_entry: MagicMock) -> MagicMock:
     coordinator = MagicMock()
     coordinator.data = SAMPLE_MEASUREMENT
     coordinator.config_entry = mock_config_entry
-    coordinator.energy_last_period_end = SAMPLE_MEASUREMENT.period_end
-    coordinator.economics_last_period_end = SAMPLE_MEASUREMENT.period_end
+    coordinator.get_energy_last_period_end = MagicMock(
+        return_value=SAMPLE_MEASUREMENT.period_end
+    )
+    coordinator.get_economics_last_period_end = MagicMock(
+        return_value=SAMPLE_MEASUREMENT.period_end
+    )
     coordinator.analytics_last_period_end = SAMPLE_MEASUREMENT.period_end
-    coordinator.energy_totals = {}
-    coordinator.economics_totals = {}
+    coordinator.get_energy_totals = MagicMock(return_value={})
+    coordinator.get_economics_totals = MagicMock(return_value={})
     coordinator.energy_processed_period_count = 0
     coordinator.economics_processed_period_count = 0
     coordinator.analytics_processed_period_count = 0
-    coordinator.skipped_savings_window_count = 0
+    coordinator.get_skipped_savings_window_count = MagicMock(return_value=0)
     coordinator.expected_usable_capacity_kwh = 10.0
     coordinator.analytics_state = AnalyticsState()
     coordinator.get_energy_total = MagicMock(return_value=0.0)
@@ -125,10 +129,6 @@ def mock_coordinator(mock_config_entry: MagicMock) -> MagicMock:
     coordinator.get_power_fee_monthly_peaks = MagicMock(return_value={})
     coordinator.tariff_config = MagicMock()
     coordinator.tariff_config.power_fee_rule = "none"
-    coordinator._attribution_skipped_window_counts = {}
-    coordinator._power_fee_monthly_estimates = {}
-    coordinator._power_fee_monthly_peaks = {}
-    coordinator._monthly_battery_savings = {}
     coordinator.battery_monthly_cost = 0.0
     coordinator.battery_total_cost = 0.0
     coordinator.akkureservihyvitys = 0.0

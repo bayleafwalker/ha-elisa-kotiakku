@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -98,70 +99,17 @@ def _async_register_backfill_service(hass: HomeAssistant) -> None:
 
     async def _async_handle_backfill(call: ServiceCall) -> None:
         """Backfill measurement-derived counters from historical API data."""
-        start, end = _resolve_backfill_range(call.data)
-        target_entry_id = call.data.get(ATTR_ENTRY_ID)
-
-        entries = _loaded_entries(hass)
-        if target_entry_id is not None:
-            entries = [
-                entry for entry in entries if entry.entry_id == target_entry_id
-            ]
-            if not entries:
-                raise ServiceValidationError(
-                    f"Entry '{target_entry_id}' is not loaded for {DOMAIN}",
-                    translation_domain=DOMAIN,
-                    translation_key="entry_not_loaded",
-                    translation_placeholders={"entry_id": target_entry_id},
-                )
-        elif not entries:
-            raise ServiceValidationError(
-                "No loaded Elisa Kotiakku config entries found",
-                translation_domain=DOMAIN,
-                translation_key="no_loaded_entries",
-            )
-
-        start_iso = start.isoformat()
-        end_iso = end.isoformat()
-
-        total_processed = 0
-        for entry in entries:
-            coordinator = entry.runtime_data
-            try:
-                processed = await coordinator.async_backfill_energy(
+        await _async_run_historical_maintenance(
+            hass,
+            call,
+            action=lambda coordinator, start_iso, end_iso: (
+                coordinator.async_backfill_energy(
                     start_time=start_iso,
                     end_time=end_iso,
                 )
-            except ConfigEntryAuthFailed as err:
-                raise ServiceValidationError(
-                    str(err),
-                    translation_domain=DOMAIN,
-                    translation_key="backfill_failed",
-                    translation_placeholders={"reason": str(err)},
-                ) from err
-            except UpdateFailed as err:
-                raise ServiceValidationError(
-                    str(err),
-                    translation_domain=DOMAIN,
-                    translation_key="backfill_failed",
-                    translation_placeholders={"reason": str(err)},
-                ) from err
-
-            _LOGGER.info(
-                "Backfilled %s window(s) for entry %s (%s -> %s)",
-                processed,
-                entry.entry_id,
-                start_iso,
-                end_iso,
-            )
-            total_processed += processed
-
-        if total_processed == 0:
-            raise ServiceValidationError(
-                "No new measurement windows were backfilled. "
-                "The requested range may already be imported.",
-                translation_domain=DOMAIN,
-                translation_key="no_new_windows_backfilled",
-            )
+            ),
+            success_log_message="Backfilled %s window(s) for entry %s (%s -> %s)",
+        )
 
     hass.services.async_register(
         DOMAIN,
@@ -178,71 +126,20 @@ def _async_register_rebuild_economics_service(hass: HomeAssistant) -> None:
 
     async def _async_handle_rebuild(call: ServiceCall) -> None:
         """Rebuild economics and analytics counters from historical API data."""
-        start, end = _resolve_backfill_range(call.data)
-        target_entry_id = call.data.get(ATTR_ENTRY_ID)
-
-        entries = _loaded_entries(hass)
-        if target_entry_id is not None:
-            entries = [
-                entry for entry in entries if entry.entry_id == target_entry_id
-            ]
-            if not entries:
-                raise ServiceValidationError(
-                    f"Entry '{target_entry_id}' is not loaded for {DOMAIN}",
-                    translation_domain=DOMAIN,
-                    translation_key="entry_not_loaded",
-                    translation_placeholders={"entry_id": target_entry_id},
-                )
-        elif not entries:
-            raise ServiceValidationError(
-                "No loaded Elisa Kotiakku config entries found",
-                translation_domain=DOMAIN,
-                translation_key="no_loaded_entries",
-            )
-
-        start_iso = start.isoformat()
-        end_iso = end.isoformat()
-
-        total_processed = 0
-        for entry in entries:
-            coordinator = entry.runtime_data
-            try:
-                processed = await coordinator.async_rebuild_economics(
+        await _async_run_historical_maintenance(
+            hass,
+            call,
+            action=lambda coordinator, start_iso, end_iso: (
+                coordinator.async_rebuild_economics(
                     start_time=start_iso,
                     end_time=end_iso,
                 )
-            except ConfigEntryAuthFailed as err:
-                raise ServiceValidationError(
-                    str(err),
-                    translation_domain=DOMAIN,
-                    translation_key="backfill_failed",
-                    translation_placeholders={"reason": str(err)},
-                ) from err
-            except UpdateFailed as err:
-                raise ServiceValidationError(
-                    str(err),
-                    translation_domain=DOMAIN,
-                    translation_key="backfill_failed",
-                    translation_placeholders={"reason": str(err)},
-                ) from err
-
-            _LOGGER.info(
+            ),
+            success_log_message=(
                 "Rebuilt economics and analytics from %s window(s) "
-                "for entry %s (%s -> %s)",
-                processed,
-                entry.entry_id,
-                start_iso,
-                end_iso,
-            )
-            total_processed += processed
-
-        if total_processed == 0:
-            raise ServiceValidationError(
-                "No new measurement windows were backfilled. "
-                "The requested range may already be imported.",
-                translation_domain=DOMAIN,
-                translation_key="no_new_windows_backfilled",
-            )
+                "for entry %s (%s -> %s)"
+            ),
+        )
 
     hass.services.async_register(
         DOMAIN,
@@ -296,6 +193,75 @@ async def _async_run_startup_backfill(entry: ElisaKotiakkuConfigEntry) -> None:
     )
 
 
+async def _async_run_historical_maintenance(
+    hass: HomeAssistant,
+    call: ServiceCall,
+    action: Callable[[ElisaKotiakkuCoordinator, str, str], Awaitable[int]],
+    success_log_message: str,
+) -> None:
+    """Run one maintenance action for one or more loaded entries."""
+    start, end = _resolve_backfill_range(call.data)
+    target_entry_id = call.data.get(ATTR_ENTRY_ID)
+    entries = _resolve_target_entries(hass, target_entry_id)
+
+    start_iso = start.isoformat()
+    end_iso = end.isoformat()
+    total_processed = 0
+
+    for entry in entries:
+        coordinator = entry.runtime_data
+        try:
+            processed = await action(coordinator, start_iso, end_iso)
+        except (ConfigEntryAuthFailed, UpdateFailed) as err:
+            raise ServiceValidationError(
+                str(err),
+                translation_domain=DOMAIN,
+                translation_key="backfill_failed",
+                translation_placeholders={"reason": str(err)},
+            ) from err
+
+        _LOGGER.info(
+            success_log_message,
+            processed,
+            entry.entry_id,
+            start_iso,
+            end_iso,
+        )
+        total_processed += processed
+
+    if total_processed == 0:
+        raise ServiceValidationError(
+            "No new measurement windows were backfilled. "
+            "The requested range may already be imported.",
+            translation_domain=DOMAIN,
+            translation_key="no_new_windows_backfilled",
+        )
+
+
+def _resolve_target_entries(
+    hass: HomeAssistant,
+    target_entry_id: str | None,
+) -> list[ElisaKotiakkuConfigEntry]:
+    """Resolve target entries for maintenance actions."""
+    entries = _loaded_entries(hass)
+    if target_entry_id is not None:
+        entries = [entry for entry in entries if entry.entry_id == target_entry_id]
+        if not entries:
+            raise ServiceValidationError(
+                f"Entry '{target_entry_id}' is not loaded for {DOMAIN}",
+                translation_domain=DOMAIN,
+                translation_key="entry_not_loaded",
+                translation_placeholders={"entry_id": target_entry_id},
+            )
+    elif not entries:
+        raise ServiceValidationError(
+            "No loaded Elisa Kotiakku config entries found",
+            translation_domain=DOMAIN,
+            translation_key="no_loaded_entries",
+        )
+    return entries
+
+
 def _resolve_backfill_range(data: dict[str, Any]) -> tuple[datetime, datetime]:
     """Resolve start/end datetimes from service payload."""
     now = dt_util.now()
@@ -332,11 +298,6 @@ def _resolve_backfill_range(data: dict[str, Any]) -> tuple[datetime, datetime]:
         )
 
     return start, end
-
-
-def _has_loaded_entries(hass: HomeAssistant) -> bool:
-    """Return True if at least one config entry is loaded."""
-    return bool(_loaded_entries(hass))
 
 
 def _ensure_timezone(value: datetime) -> datetime:

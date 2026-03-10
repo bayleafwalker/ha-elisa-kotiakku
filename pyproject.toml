@@ -1,9 +1,17 @@
 [project]
 name = "ha-elisa-kotiakku"
-version = "1.0.0"
+# Packaging metadata for local tooling only.
+# This integration is not published on PyPI.
+# Home Assistant runtime release version is defined in
+# custom_components/elisa_kotiakku/manifest.json and git tags/releases.
+version = "1.3.1"
 description = "Home Assistant custom integration for Elisa Kotiakku"
 license = "MIT"
 requires-python = ">=3.12"
+
+[tool.elisa_kotiakku]
+publish_to_pypi = false
+release_version_source = "custom_components/elisa_kotiakku/manifest.json"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -21,3 +29,4 @@ python_version = "3.13"
 strict = true
 warn_unused_ignores = true
 show_error_codes = true
+explicit_package_bases = true
