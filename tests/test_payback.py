@@ -274,8 +274,84 @@ class TestMonthlyFirstDayOfProfit:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        # Set up data but no savings
+        # Set up data but no savings and no historical months to fall back on
         coordinator.data = SAMPLE_MEASUREMENT
+        coordinator._economics_state.monthly_battery_savings = {"2025-12": 0.0}
+        assert coordinator.get_monthly_first_day_of_profit() is None
+
+    def test_uses_historical_average_when_current_month_has_no_savings(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Fall back to historical average when current month savings are zero.
+
+        This covers the common scenario where monthly_battery_savings was newly
+        introduced (or a new month just began) so current-month data is absent
+        while previous months have accumulated positive savings.
+        """
+        mock_config_entry.options = {
+            CONF_BATTERY_TOTAL_COST: 1200.0,  # → 10.0 EUR/month
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator.data = SAMPLE_MEASUREMENT  # period_start 2025-12-17 (day 17)
+        coordinator._economics_state.monthly_battery_savings = {
+            "2025-10": 20.0,
+            "2025-11": 24.0,
+            # "2025-12" is absent — simulates feature newly added mid-month
+        }
+        result = coordinator.get_monthly_first_day_of_profit()
+        # avg of prior months = (20 + 24) / 2 = 22.0 EUR/month
+        # days_in_month(Dec) = 31; daily_rate = 22.0 / 31 ≈ 0.710
+        # breakeven_day = 10.0 / 0.710 ≈ 14.1 → day 15
+        assert result is not None
+        assert result == 15
+
+    def test_uses_historical_average_when_current_month_savings_negative(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Fall back to historical average when current month savings are negative.
+
+        Early in a month the battery may still be in a net-charging phase
+        (savings_delta negative). The sensor should not stay stuck at unknown
+        for the entire month if previous months showed positive savings.
+        """
+        mock_config_entry.options = {CONF_BATTERY_MONTHLY_COST: 10.0}
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator.data = SAMPLE_MEASUREMENT  # 2025-12-17
+        coordinator._economics_state.monthly_battery_savings = {
+            "2025-10": 15.0,
+            "2025-11": 17.0,
+            "2025-12": -2.0,  # current month is net negative so far
+        }
+        result = coordinator.get_monthly_first_day_of_profit()
+        # avg of prior months (only positive prior months) = (15 + 17) / 2 = 16.0
+        # days_in_month(Dec) = 31; daily_rate = 16.0 / 31 ≈ 0.516
+        # breakeven_day = 10.0 / 0.516 ≈ 19.4 → day 20
+        assert result is not None
+        assert result == 20
+
+    def test_still_returns_none_when_no_prior_positive_months(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """No historical fallback available: sensor stays unknown."""
+        mock_config_entry.options = {CONF_BATTERY_MONTHLY_COST: 30.0}
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator.data = SAMPLE_MEASUREMENT
+        # Only the current month with zero savings; nothing prior to fall back on
         coordinator._economics_state.monthly_battery_savings = {"2025-12": 0.0}
         assert coordinator.get_monthly_first_day_of_profit() is None
 

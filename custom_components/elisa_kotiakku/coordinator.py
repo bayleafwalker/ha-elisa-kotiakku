@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -362,23 +363,50 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         of payback years (simplified to total_cost / 120 for a 10-year
         horizon — matching a typical osamaksu agreement).
 
+        When the current month has no positive savings recorded yet (e.g. the
+        monthly-savings tracking was newly introduced and old windows were
+        already marked processed, or the month has just begun and only charging
+        windows have been seen so far), the calculation falls back to the
+        average of previous months that had positive savings.  In that case the
+        implied daily rate is computed over the full month length so the
+        estimate is not distorted by how early in the month it currently is.
+
         Returns the day-of-month (1-31) when savings exceed the monthly cost,
         or ``None`` when there is no cost configured, no data yet, or savings
         have not yet exceeded the cost this month.
         """
         monthly_cost = self._effective_monthly_cost()
-        month_key = self._current_measurement_month_key()
-        if month_key is None:
-            return None
-
-        month_savings = self._economics_state.monthly_battery_savings.get(
-            month_key, 0.0
-        )
         if self.data is None:
             return None
         timestamp = _measurement_timestamp(self.data)
         if timestamp is None:
             return None
+        month_key = timestamp.strftime("%Y-%m")
+
+        month_savings = self._economics_state.monthly_battery_savings.get(
+            month_key, 0.0
+        )
+
+        # When no positive savings exist for the current month, fall back to
+        # the average of prior months that recorded positive savings so the
+        # sensor can provide a useful historical-average projection rather than
+        # going unknown the moment a new month begins (or after an upgrade that
+        # did not backfill monthly_battery_savings).  The timestamp day is
+        # replaced with the full month length so the daily-rate denominator
+        # matches the scope of the historical average.
+        if month_savings <= 0:
+            prior_savings = [
+                v
+                for k, v in self._economics_state.monthly_battery_savings.items()
+                if k < month_key and v > 0
+            ]
+            if prior_savings:
+                days_in_month = calendar.monthrange(
+                    timestamp.year, timestamp.month
+                )[1]
+                month_savings = sum(prior_savings) / len(prior_savings)
+                timestamp = timestamp.replace(day=days_in_month)
+
         return monthly_first_day_of_profit(
             monthly_cost=monthly_cost,
             month_savings=month_savings,
