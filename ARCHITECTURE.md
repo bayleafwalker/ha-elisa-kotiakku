@@ -22,6 +22,7 @@ custom_components/elisa_kotiakku/
 ├── energy_store.py             # Cumulative energy state + processing
 ├── economics_engine.py         # Economics/power-fee/savings state + processing
 ├── payback.py                  # Pure payback/profit calculations
+├── processing.py               # Batch measurement dispatch (apply + rebuild)
 ├── coordinator.py              # DataUpdateCoordinator orchestration layer
 ├── sensor.py                   # Sensor platform entrypoint (aggregates modules)
 ├── sensor_measurement.py       # 14 measurement sensors

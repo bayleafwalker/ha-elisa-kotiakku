@@ -2,15 +2,32 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any
 
+from homeassistant.const import __version__ as HA_VERSION
 from homeassistant.core import HomeAssistant
 
 from . import ElisaKotiakkuConfigEntry
 from .const import CONF_API_KEY
 
 TO_REDACT = {CONF_API_KEY}
+_MANIFEST_PATH = Path(__file__).with_name("manifest.json")
+
+
+def _integration_version() -> str | None:
+    """Return the installed integration version from manifest.json."""
+    try:
+        manifest = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    version = manifest.get("version")
+    if isinstance(version, str):
+        return version
+    return None
 
 
 async def async_get_config_entry_diagnostics(
@@ -30,9 +47,16 @@ async def async_get_config_entry_diagnostics(
     )
 
     return {
+        "integration_version": _integration_version(),
+        "home_assistant_version": HA_VERSION,
         "config": config_data,
         "options": dict(entry.options),
+        "configured_tariff_preset": coordinator.tariff_config.tariff_preset,
+        "configured_tariff_mode": coordinator.tariff_config.tariff_mode,
         "latest_measurement": measurement,
+        "last_api_error": coordinator.get_last_api_error(),
+        "last_apply_window_counts": coordinator.get_last_apply_window_counts(),
+        "last_rebuild_window_counts": coordinator.get_last_rebuild_window_counts(),
         "energy_totals": coordinator.get_energy_totals(),
         "energy_last_period_end": coordinator.get_energy_last_period_end(),
         "energy_processed_period_count": coordinator.energy_processed_period_count,
@@ -47,6 +71,7 @@ async def async_get_config_entry_diagnostics(
         "attribution_skipped_window_counts": (
             coordinator.get_attribution_skipped_window_counts()
         ),
+        "monthly_battery_savings": coordinator.get_monthly_battery_savings(),
         "power_fee_monthly_estimates": coordinator.get_power_fee_monthly_estimates(),
         "power_fee_monthly_peaks": coordinator.get_power_fee_monthly_peaks(),
         "analytics_last_period_end": coordinator.analytics_last_period_end,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from .const import (
@@ -65,6 +65,16 @@ class TariffPreset:
     night_grid_import_transfer_fee_cents_per_kwh: float
     source_name: str
     source_effective_date: str
+    valid_from: str
+    valid_until: str
+
+
+@dataclass(frozen=True, slots=True)
+class TariffPresetIssue:
+    """Repair issue metadata for a stale or expiring tariff preset."""
+
+    preset: TariffPreset
+    issue_translation_key: str
 
 
 _TARIFF_PRESETS: dict[str, TariffPreset] = {
@@ -76,6 +86,8 @@ _TARIFF_PRESETS: dict[str, TariffPreset] = {
         night_grid_import_transfer_fee_cents_per_kwh=5.26,
         source_name="Caruna Oy Yleissiirto",
         source_effective_date="2024-09-01",
+        valid_from="2026-01-01",
+        valid_until="2026-12-31",
     ),
     TARIFF_PRESET_CARUNA_NIGHT_2026_01: TariffPreset(
         key=TARIFF_PRESET_CARUNA_NIGHT_2026_01,
@@ -85,6 +97,8 @@ _TARIFF_PRESETS: dict[str, TariffPreset] = {
         night_grid_import_transfer_fee_cents_per_kwh=3.12,
         source_name="Caruna Oy Yösiirto",
         source_effective_date="2024-09-01",
+        valid_from="2026-01-01",
+        valid_until="2026-12-31",
     ),
     TARIFF_PRESET_CARUNA_NIGHT_SEASONAL_2026_01: TariffPreset(
         key=TARIFF_PRESET_CARUNA_NIGHT_SEASONAL_2026_01,
@@ -94,6 +108,8 @@ _TARIFF_PRESETS: dict[str, TariffPreset] = {
         night_grid_import_transfer_fee_cents_per_kwh=3.23,
         source_name="Caruna Oy Kausisiirto",
         source_effective_date="2024-09-01",
+        valid_from="2026-01-01",
+        valid_until="2026-12-31",
     ),
     TARIFF_PRESET_CARUNA_ESPOO_GENERAL_2026_01: TariffPreset(
         key=TARIFF_PRESET_CARUNA_ESPOO_GENERAL_2026_01,
@@ -103,6 +119,8 @@ _TARIFF_PRESETS: dict[str, TariffPreset] = {
         night_grid_import_transfer_fee_cents_per_kwh=4.87,
         source_name="Caruna Espoo Oy Yleissiirto",
         source_effective_date="2026-01-01",
+        valid_from="2026-01-01",
+        valid_until="2026-12-31",
     ),
     TARIFF_PRESET_CARUNA_ESPOO_NIGHT_2026_01: TariffPreset(
         key=TARIFF_PRESET_CARUNA_ESPOO_NIGHT_2026_01,
@@ -112,6 +130,8 @@ _TARIFF_PRESETS: dict[str, TariffPreset] = {
         night_grid_import_transfer_fee_cents_per_kwh=3.12,
         source_name="Caruna Espoo Oy Yösiirto",
         source_effective_date="2026-01-01",
+        valid_from="2026-01-01",
+        valid_until="2026-12-31",
     ),
 }
 
@@ -397,6 +417,33 @@ def normalize_tariff_options(options: Mapping[str, Any] | Any) -> dict[str, Any]
 def get_tariff_preset(key: str) -> TariffPreset | None:
     """Return a tariff preset by key."""
     return _TARIFF_PRESETS.get(key)
+
+
+def get_tariff_preset_issue(
+    key: str,
+    *,
+    current_date: date,
+    warning_days: int = 30,
+) -> TariffPresetIssue | None:
+    """Return repair metadata when a preset is near expiry or already stale."""
+    preset = get_tariff_preset(key)
+    if preset is None:
+        return None
+
+    valid_until = date.fromisoformat(preset.valid_until)
+    if current_date > valid_until:
+        return TariffPresetIssue(
+            preset=preset,
+            issue_translation_key="tariff_preset_expired",
+        )
+
+    if current_date >= valid_until - timedelta(days=warning_days):
+        return TariffPresetIssue(
+            preset=preset,
+            issue_translation_key="tariff_preset_expiring",
+        )
+
+    return None
 
 
 def tariff_preset_keys() -> tuple[str, ...]:

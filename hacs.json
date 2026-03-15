@@ -1,6 +1,5 @@
 {
   "name": "Elisa Kotiakku",
-  "domains": ["elisa_kotiakku"],
-  "iot_class": "cloud_polling",
+  "country": ["FI"],
   "homeassistant": "2024.1.0"
 }

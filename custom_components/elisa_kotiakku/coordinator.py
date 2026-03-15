@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import calendar
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry
+from homeassistant.helpers.issue_registry import IssueSeverity
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .analytics import AnalyticsState
 from .api import (
@@ -40,7 +44,12 @@ from .payback import (
     monthly_first_day_of_profit,
     payback_remaining_months,
 )
-from .tariff import ActiveTariffRates, TariffConfig
+from .processing import (
+    WindowProcessingStats,
+    apply_measurements,
+    rebuild_economics_range,
+)
+from .tariff import ActiveTariffRates, TariffConfig, get_tariff_preset_issue
 from .util import parse_iso8601 as _parse_iso8601
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,6 +57,16 @@ _LOGGER = logging.getLogger(__name__)
 _ENERGY_STORE_VERSION = 1
 _ECONOMICS_STORE_VERSION = 1
 _ANALYTICS_STORE_VERSION = 1
+_TARIFF_PRESET_ISSUE_ID_PREFIX = "tariff_preset_validity_"
+
+
+@dataclass(frozen=True, slots=True)
+class ApiErrorState:
+    """Latest API error details exposed through diagnostics."""
+
+    error_class: str
+    context: str
+    retry_after: int | None = None
 
 
 class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
@@ -116,6 +135,9 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
             _ANALYTICS_STORE_VERSION,
             f"{DOMAIN}_{config_entry.entry_id}_analytics",
         )
+        self._last_api_error: ApiErrorState | None = None
+        self._last_apply_stats = WindowProcessingStats()
+        self._last_rebuild_stats = WindowProcessingStats()
 
     async def async_load_energy_state(self) -> None:
         """Restore persisted cumulative energy values."""
@@ -145,10 +167,12 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         try:
             data = await self.client.async_get_latest()
         except ElisaKotiakkuAuthError as err:
+            self._record_api_error(err, context="update")
             raise ConfigEntryAuthFailed(
                 f"Authentication failed: {err}"
             ) from err
         except ElisaKotiakkuRateLimitError as err:
+            self._record_api_error(err, context="update")
             default_seconds = int(self._default_update_interval.total_seconds())
             backoff_seconds = max(err.retry_after or default_seconds, default_seconds)
             self.update_interval = timedelta(seconds=backoff_seconds)
@@ -156,8 +180,10 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
                 f"Rate limited by API, retrying in {backoff_seconds} seconds"
             ) from err
         except ElisaKotiakkuApiError as err:
+            self._record_api_error(err, context="update")
             raise UpdateFailed(f"Error fetching data: {err}") from err
 
+        self._clear_last_api_error()
         if self.update_interval != self._default_update_interval:
             self.update_interval = self._default_update_interval
 
@@ -175,12 +201,15 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         try:
             measurements = await self.client.async_get_range(start_time, end_time)
         except ElisaKotiakkuAuthError as err:
+            self._record_api_error(err, context="history")
             raise ConfigEntryAuthFailed(
                 f"Authentication failed: {err}"
             ) from err
         except ElisaKotiakkuApiError as err:
+            self._record_api_error(err, context="history")
             raise UpdateFailed(f"Error fetching historical data: {err}") from err
 
+        self._clear_last_api_error()
         return await self.async_process_measurements(measurements, notify=True)
 
     async def async_rebuild_economics(
@@ -192,13 +221,17 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         try:
             measurements = await self.client.async_get_range(start_time, end_time)
         except ElisaKotiakkuAuthError as err:
+            self._record_api_error(err, context="history")
             raise ConfigEntryAuthFailed(
                 f"Authentication failed: {err}"
             ) from err
         except ElisaKotiakkuApiError as err:
+            self._record_api_error(err, context="history")
             raise UpdateFailed(f"Error fetching historical data: {err}") from err
 
+        self._clear_last_api_error()
         if not measurements:
+            self._last_rebuild_stats = WindowProcessingStats()
             return 0
 
         self._reset_economics_runtime()
@@ -206,24 +239,22 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         await self._async_save_economics_state()
         await self._async_save_analytics_state()
 
-        processed = 0
-        for measurement in sorted(measurements, key=lambda item: item.period_end):
-            if not self._economics_state.process_measurement(
-                measurement,
-                tariff_config=self.tariff_config,
-            ):
-                continue
-            self.analytics_state.process_measurement(measurement)
-            self.analytics_state.mark_processed(measurement.period_end)
-            self._maybe_update_live_measurement(measurement)
-            processed += 1
+        stats = rebuild_economics_range(
+            measurements,
+            economics_state=self._economics_state,
+            analytics_state=self.analytics_state,
+            tariff_config=self.tariff_config,
+        )
+        self._last_rebuild_stats = stats
+        if stats.latest_processed_measurement is not None:
+            self._maybe_update_live_measurement(stats.latest_processed_measurement)
 
-        if processed:
+        if stats.processed_count:
             await self._async_save_economics_state()
             await self._async_save_analytics_state()
             self.async_update_listeners()
 
-        return processed
+        return stats.processed_count
 
     async def async_process_measurements(
         self,
@@ -232,45 +263,28 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         notify: bool,
     ) -> int:
         """Process one or more windows into energy and economics counters."""
-        processed = 0
-        energy_changed = False
-        economics_changed = False
-        analytics_changed = False
+        stats = apply_measurements(
+            measurements,
+            energy_state=self._energy_state,
+            economics_state=self._economics_state,
+            analytics_state=self.analytics_state,
+            tariff_config=self.tariff_config,
+        )
+        self._last_apply_stats = stats
 
-        for measurement in sorted(measurements, key=lambda item: item.period_end):
-            measurement_processed = False
+        if stats.latest_processed_measurement is not None:
+            self._maybe_update_live_measurement(stats.latest_processed_measurement)
 
-            if self._energy_state.process_measurement(measurement):
-                energy_changed = True
-                measurement_processed = True
-
-            if self._economics_state.process_measurement(
-                measurement,
-                tariff_config=self.tariff_config,
-            ):
-                economics_changed = True
-                measurement_processed = True
-
-            if self.analytics_state.is_unprocessed_period(measurement.period_end):
-                self.analytics_state.process_measurement(measurement)
-                self.analytics_state.mark_processed(measurement.period_end)
-                analytics_changed = True
-                measurement_processed = True
-
-            if measurement_processed:
-                self._maybe_update_live_measurement(measurement)
-                processed += 1
-
-        if energy_changed:
+        if stats.energy_changed:
             await self._async_save_energy_state()
-        if economics_changed:
+        if stats.economics_changed:
             await self._async_save_economics_state()
-        if analytics_changed:
+        if stats.analytics_changed:
             await self._async_save_analytics_state()
-        if processed and notify:
+        if stats.processed_count and notify:
             self.async_update_listeners()
 
-        return processed
+        return stats.processed_count
 
     def get_energy_total(self, key: str) -> float | None:
         """Return current cumulative energy total for the given key."""
@@ -430,14 +444,11 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         )
 
     def _effective_monthly_cost(self) -> float | None:
-        """Return configured monthly cost, deriving from total if needed.
+        """Return effective monthly cost after akkureservi compensation.
 
-        When ``battery_monthly_cost`` is set directly it is returned as-is
-        (user is expected to have already accounted for service fees and
-        akkureservi compensation).
-
-        When deriving from ``battery_total_cost`` (÷ 120 months), the
-        akkureservihyvitys is subtracted to reflect the net monthly cost.
+        Akkureservihyvitys is always subtracted from the gross monthly cost,
+        whether it is set directly via ``battery_monthly_cost`` or derived
+        from ``battery_total_cost`` (÷ 120 months).
         """
         return effective_monthly_cost(
             battery_monthly_cost=self.battery_monthly_cost,
@@ -501,6 +512,24 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         """Return monthly battery savings map used for payback context."""
         return dict(self._economics_state.monthly_battery_savings)
 
+    def get_last_api_error(self) -> dict[str, str | int | None] | None:
+        """Return the latest API error details for diagnostics."""
+        if self._last_api_error is None:
+            return None
+        return {
+            "class": self._last_api_error.error_class,
+            "context": self._last_api_error.context,
+            "retry_after": self._last_api_error.retry_after,
+        }
+
+    def get_last_apply_window_counts(self) -> dict[str, int]:
+        """Return processed/deduped counts from the latest apply run."""
+        return self._last_apply_stats.as_counts()
+
+    def get_last_rebuild_window_counts(self) -> dict[str, int]:
+        """Return processed/deduped counts from the latest rebuild run."""
+        return self._last_rebuild_stats.as_counts()
+
     @property
     def energy_processed_period_count(self) -> int:
         """Return number of period_end markers already processed for energy."""
@@ -524,6 +553,44 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
     def _reset_economics_runtime(self) -> None:
         """Reset all economics state to defaults."""
         self._economics_state.reset_runtime()
+
+    def refresh_tariff_preset_issue(self) -> None:
+        """Create or clear repairs issues for dated tariff presets."""
+        issue = get_tariff_preset_issue(
+            self.tariff_config.tariff_preset,
+            current_date=dt_util.now().date(),
+        )
+        issue_id = self._tariff_preset_issue_id()
+        if issue is None:
+            issue_registry.async_delete_issue(self.hass, DOMAIN, issue_id)
+            return
+
+        issue_registry.async_create_issue(
+            self.hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            is_persistent=False,
+            severity=IssueSeverity.WARNING,
+            translation_key=issue.issue_translation_key,
+            translation_placeholders={
+                "preset_name": issue.preset.source_name,
+                "valid_from": issue.preset.valid_from,
+                "valid_until": issue.preset.valid_until,
+            },
+            learn_more_url=(
+                "https://github.com/bayleafwalker/ha-elisa-kotiakku"
+                "#starter-tariff-presets-bundled-in-the-integration"
+            ),
+        )
+
+    def clear_tariff_preset_issue(self) -> None:
+        """Remove any repairs issue associated with this entry's tariff preset."""
+        issue_registry.async_delete_issue(
+            self.hass,
+            DOMAIN,
+            self._tariff_preset_issue_id(),
+        )
 
     def _current_measurement_month_key(self) -> str | None:
         """Return month key for the latest measurement."""
@@ -566,6 +633,33 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
 
         if measurement.period_end >= current.period_end:
             self.data = measurement
+
+    def _record_api_error(
+        self,
+        err: ElisaKotiakkuApiError,
+        *,
+        context: str,
+    ) -> None:
+        """Capture the latest API error details for diagnostics."""
+        retry_after = None
+        if isinstance(err, ElisaKotiakkuRateLimitError):
+            retry_after = err.retry_after
+        self._last_api_error = ApiErrorState(
+            error_class=type(err).__name__,
+            context=context,
+            retry_after=retry_after,
+        )
+
+    def _clear_last_api_error(self) -> None:
+        """Clear the latest API error after a successful request."""
+        self._last_api_error = None
+
+    def _tariff_preset_issue_id(self) -> str:
+        """Return a stable repairs issue ID for this config entry."""
+        config_entry = self.config_entry
+        assert config_entry is not None
+        return f"{_TARIFF_PRESET_ISSUE_ID_PREFIX}{config_entry.entry_id}"
+
 
 def _measurement_timestamp(measurement: MeasurementData) -> datetime | None:
     """Return measurement period start timestamp."""

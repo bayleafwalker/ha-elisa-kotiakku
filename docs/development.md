@@ -17,7 +17,7 @@ pip install -r requirements-test.txt
 ## Run tests
 
 ```bash
-pytest
+pytest --cov=custom_components/elisa_kotiakku --cov-fail-under=95 -q
 ```
 
 For quick targeted verification during refactors:
@@ -36,11 +36,21 @@ mypy --explicit-package-bases custom_components/elisa_kotiakku
 ## Validate metadata and translations
 
 ```bash
+python scripts/check_version_sync.py
 python -m json.tool custom_components/elisa_kotiakku/strings.json > /dev/null
 python -m json.tool custom_components/elisa_kotiakku/translations/en.json > /dev/null
 python -m json.tool custom_components/elisa_kotiakku/translations/fi.json > /dev/null
 python -m json.tool custom_components/elisa_kotiakku/manifest.json > /dev/null
 ```
+
+## Live API contract check
+
+```bash
+GRIDLE_API_KEY=... python scripts/check_api_contract.py
+```
+
+The script only prints sanitized metadata such as item counts and latest
+`period_end`. It never writes or uploads live response payloads.
 
 ## Packaging metadata policy
 

@@ -7,6 +7,7 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 from typing import Any
 
+import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
@@ -37,6 +38,8 @@ from .coordinator import ElisaKotiakkuCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.SENSOR]
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 BACKFILL_SERVICE_SCHEMA = vol.Schema(
     {
@@ -75,6 +78,7 @@ async def async_setup_entry(
     await coordinator.async_load_economics_state()
     await coordinator.async_load_analytics_state()
     await coordinator.async_config_entry_first_refresh()
+    coordinator.refresh_tariff_preset_issue()
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     entry.runtime_data = coordinator
@@ -89,6 +93,9 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: ElisaKotiakkuConfigEntry
 ) -> bool:
     """Unload a config entry."""
+    coordinator = getattr(entry, "runtime_data", None)
+    if coordinator is not None:
+        coordinator.clear_tariff_preset_issue()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -30,11 +30,13 @@ from custom_components.elisa_kotiakku.const import (
     CONF_POWER_FEE_RATE,
     CONF_POWER_FEE_RULE,
     CONF_TARIFF_MODE,
+    CONF_TARIFF_PRESET,
     DEFAULT_WINDOW_HOURS,
     POWER_FEE_RULE_MONTHLY_MAX_ALL_HOURS,
     POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
     POWER_FEE_RULE_MONTHLY_TOP3_WINTER_WEEKDAY_DAYTIME,
     TARIFF_MODE_DAY_NIGHT,
+    TARIFF_PRESET_CARUNA_GENERAL_2026_01,
 )
 from custom_components.elisa_kotiakku.coordinator import (
     ElisaKotiakkuCoordinator,
@@ -286,6 +288,11 @@ class TestCoordinatorUpdate:
             await coordinator._async_update_data()
 
         assert coordinator.update_interval == timedelta(seconds=900)
+        assert coordinator.get_last_api_error() == {
+            "class": "ElisaKotiakkuRateLimitError",
+            "context": "update",
+            "retry_after": 900,
+        }
 
     async def test_success_resets_backoff_to_default(
         self,
@@ -306,6 +313,7 @@ class TestCoordinatorUpdate:
 
         await coordinator._async_update_data()
         assert coordinator.update_interval == timedelta(minutes=5)
+        assert coordinator.get_last_api_error() is None
 
 
 class TestBackfillAndPersistence:
@@ -421,6 +429,35 @@ class TestBackfillAndPersistence:
 
         assert processed_first == 1
         assert processed_second == 0
+        assert coordinator.get_last_apply_window_counts() == {
+            "processed": 0,
+            "deduped": 1,
+        }
+
+    async def test_backfill_then_live_update_dedupes_same_period(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """A live poll should not double-count a window imported by backfill."""
+        measurement = _measurement_at("2026-01-05T08:00:00+02:00", grid_power_kw=6.0)
+        mock_api_client.async_get_range.return_value = [measurement]
+        mock_api_client.async_get_latest.return_value = measurement
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+
+        await coordinator.async_backfill_energy("a", "b")
+        energy_before = coordinator.get_energy_total("grid_import_energy")
+
+        await coordinator._async_update_data()
+
+        assert coordinator.get_energy_total("grid_import_energy") == energy_before
+        assert coordinator.get_last_apply_window_counts() == {
+            "processed": 0,
+            "deduped": 1,
+        }
 
     async def test_load_energy_state_restores_totals(
         self,
@@ -1353,6 +1390,66 @@ class TestEnergyHelpers:
         coordinator._energy_store.async_save.assert_awaited_once()
         coordinator._economics_store.async_save.assert_awaited_once()
         coordinator._analytics_store.async_save.assert_awaited_once()
+
+
+class TestTariffPresetRepairs:
+    """Tests for tariff preset repair issue handling."""
+
+    def test_refresh_tariff_preset_issue_creates_warning(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        mock_config_entry.options = {
+            CONF_TARIFF_PRESET: TARIFF_PRESET_CARUNA_GENERAL_2026_01
+        }
+        coordinator = ElisaKotiakkuCoordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+
+        with (
+            patch(
+                "custom_components.elisa_kotiakku.coordinator.dt_util.now",
+                return_value=datetime(2026, 12, 15, tzinfo=UTC),
+            ),
+            patch(
+                "custom_components.elisa_kotiakku.coordinator.issue_registry.async_create_issue"
+            ) as mock_create_issue,
+            patch(
+                "custom_components.elisa_kotiakku.coordinator.issue_registry.async_delete_issue"
+            ) as mock_delete_issue,
+        ):
+            coordinator.refresh_tariff_preset_issue()
+
+        mock_delete_issue.assert_not_called()
+        mock_create_issue.assert_called_once()
+        assert mock_create_issue.call_args.kwargs["translation_key"] == (
+            "tariff_preset_expiring"
+        )
+
+    def test_refresh_tariff_preset_issue_clears_for_custom_preset(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        coordinator = ElisaKotiakkuCoordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+
+        with (
+            patch(
+                "custom_components.elisa_kotiakku.coordinator.issue_registry.async_create_issue"
+            ) as mock_create_issue,
+            patch(
+                "custom_components.elisa_kotiakku.coordinator.issue_registry.async_delete_issue"
+            ) as mock_delete_issue,
+        ):
+            coordinator.refresh_tariff_preset_issue()
+
+        mock_create_issue.assert_not_called()
+        mock_delete_issue.assert_called_once()
 
 
 def test_load_map_helpers_filter_invalid_values() -> None:

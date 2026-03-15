@@ -5,7 +5,8 @@ Use this checklist before creating a new GitHub release.
 ## 1) Versioning and metadata
 
 - Update `custom_components/elisa_kotiakku/manifest.json` version.
-- Keep `pyproject.toml` metadata aligned as needed for local tooling visibility.
+- Keep `pyproject.toml` metadata aligned for local tooling visibility.
+- Run `python scripts/check_version_sync.py` before tagging.
 - Ensure release notes/changelog mention notable behavior or entity changes.
 
 ## 2) Quality gates
@@ -39,5 +40,7 @@ mypy --explicit-package-bases custom_components/elisa_kotiakku
 ## 5) GitHub release
 
 - Tag and title match `manifest.json` version.
-- Include concise upgrade notes, especially for options, sensors, or migration-sensitive changes.
-- Mention test status and key fixes/features.
+- GitHub release workflow is triggered by a `v*` tag and re-checks version sync.
+- After the workflow creates the release, edit the auto-generated notes to match `.github/release-notes-template.md`.
+- Use sections: **Fixed**, **Added**, **Changed**, **Removed** (omit empty ones).
+- Add **Upgrade Notes** section when user action is needed (option changes, entity renames, `rebuild_economics` recommendations).

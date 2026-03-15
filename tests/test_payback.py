@@ -108,6 +108,7 @@ class TestEffectiveMonthlyCost:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
+        # 49.0 - default akkureservi (0.0) = 49.0
         assert coordinator._effective_monthly_cost() == 49.0
 
     def test_total_cost_derives_monthly(
@@ -173,13 +174,13 @@ class TestEffectiveMonthlyCost:
         # 5.0 - 10.0 = -5.0
         assert coordinator._effective_monthly_cost() == pytest.approx(-5.0)
 
-    def test_monthly_cost_ignores_akkureservihyvitys(
+    def test_monthly_cost_subtracts_akkureservihyvitys(
         self,
         mock_hass: MagicMock,
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        """When monthly_cost is set directly, akkureservi is NOT subtracted."""
+        """When monthly_cost is set directly, akkureservi is subtracted."""
         mock_config_entry.options = {
             CONF_BATTERY_MONTHLY_COST: 49.0,
             CONF_BATTERY_TOTAL_COST: 6000.0,
@@ -188,7 +189,7 @@ class TestEffectiveMonthlyCost:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        assert coordinator._effective_monthly_cost() == 49.0
+        assert coordinator._effective_monthly_cost() == pytest.approx(39.0)
 
 
 class TestMonthlyFirstDayOfProfit:

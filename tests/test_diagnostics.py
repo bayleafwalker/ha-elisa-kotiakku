@@ -73,7 +73,14 @@ class TestDiagnostics:
 
         assert "config" in result
         assert "options" in result
+        assert "integration_version" in result
+        assert "home_assistant_version" in result
+        assert "configured_tariff_preset" in result
+        assert "configured_tariff_mode" in result
         assert "latest_measurement" in result
+        assert "last_api_error" in result
+        assert "last_apply_window_counts" in result
+        assert "last_rebuild_window_counts" in result
         assert "energy_totals" in result
         assert "energy_last_period_end" in result
         assert "energy_processed_period_count" in result
@@ -82,6 +89,7 @@ class TestDiagnostics:
         assert "economics_processed_period_count" in result
         assert "skipped_savings_window_count" in result
         assert "attribution_skipped_window_counts" in result
+        assert "monthly_battery_savings" in result
         assert "power_fee_monthly_estimates" in result
         assert "power_fee_monthly_peaks" in result
         assert "analytics_last_period_end" in result
@@ -91,7 +99,7 @@ class TestDiagnostics:
         assert "analytics_total_day_bucket_count" in result
         assert "analytics_rolling_bucket_count" in result
         assert "analytics_open_episode" in result
-        assert len(result) == 20
+        assert len(result) == 28
 
     async def test_energy_data_included(
         self, mock_entry_with_coordinator: MagicMock
@@ -118,6 +126,10 @@ class TestDiagnostics:
     ) -> None:
         """Economics totals and fee state should be included."""
         mock_entry_with_coordinator.options = {"tariff_mode": "flat"}
+        mock_entry_with_coordinator.runtime_data.tariff_config.tariff_preset = (
+            "caruna_general_2026_01"
+        )
+        mock_entry_with_coordinator.runtime_data.tariff_config.tariff_mode = "flat"
         (
             mock_entry_with_coordinator.runtime_data.get_economics_totals.return_value
         ) = {"purchase_cost": 4.56}
@@ -141,6 +153,19 @@ class TestDiagnostics:
         (
             mock_entry_with_coordinator.runtime_data.get_power_fee_monthly_peaks.return_value
         ) = {"2025-12": 4.32}
+        (
+            mock_entry_with_coordinator.runtime_data.get_last_api_error.return_value
+        ) = {
+            "class": "ElisaKotiakkuRateLimitError",
+            "context": "update",
+            "retry_after": 120,
+        }
+        (
+            mock_entry_with_coordinator.runtime_data.get_last_apply_window_counts.return_value
+        ) = {"processed": 1, "deduped": 1}
+        (
+            mock_entry_with_coordinator.runtime_data.get_last_rebuild_window_counts.return_value
+        ) = {"processed": 2, "deduped": 0}
 
         hass = MagicMock()
         result = await async_get_config_entry_diagnostics(
@@ -148,9 +173,20 @@ class TestDiagnostics:
         )
 
         assert result["options"]["tariff_mode"] == "flat"
+        assert result["configured_tariff_preset"] == "caruna_general_2026_01"
+        assert result["configured_tariff_mode"] == "flat"
         assert result["economics_totals"]["purchase_cost"] == 4.56
         assert result["economics_last_period_end"] == "2025-12-17T00:05:00+02:00"
         assert result["economics_processed_period_count"] == 2
+        assert result["last_api_error"]["class"] == "ElisaKotiakkuRateLimitError"
+        assert result["last_apply_window_counts"] == {
+            "processed": 1,
+            "deduped": 1,
+        }
+        assert result["last_rebuild_window_counts"] == {
+            "processed": 2,
+            "deduped": 0,
+        }
         assert result["skipped_savings_window_count"] == 1
         assert result["attribution_skipped_window_counts"] == {
             "solar_used_in_house_value": 2,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from custom_components.elisa_kotiakku.const import (
     CONF_DAY_GRID_IMPORT_TRANSFER_FEE,
@@ -20,6 +20,7 @@ from custom_components.elisa_kotiakku.const import (
 from custom_components.elisa_kotiakku.tariff import (
     TariffConfig,
     get_tariff_preset,
+    get_tariff_preset_issue,
     normalize_tariff_options,
     tariff_preset_keys,
 )
@@ -32,11 +33,32 @@ def test_preset_lookup_returns_snapshot_metadata() -> None:
     assert preset is not None
     assert preset.source_name == "Caruna Espoo Oy Yösiirto"
     assert preset.source_effective_date == "2026-01-01"
+    assert preset.valid_from == "2026-01-01"
+    assert preset.valid_until == "2026-12-31"
 
     non_espoo = get_tariff_preset(TARIFF_PRESET_CARUNA_GENERAL_2026_01)
     assert non_espoo is not None
     assert non_espoo.source_name == "Caruna Oy Yleissiirto"
     assert non_espoo.source_effective_date == "2024-09-01"
+    assert non_espoo.valid_from == "2026-01-01"
+    assert non_espoo.valid_until == "2026-12-31"
+
+
+def test_tariff_preset_issue_detects_expiring_and_expired_snapshots() -> None:
+    """Repair metadata should reflect the preset lifecycle window."""
+    expiring = get_tariff_preset_issue(
+        TARIFF_PRESET_CARUNA_GENERAL_2026_01,
+        current_date=date(2026, 12, 15),
+    )
+    expired = get_tariff_preset_issue(
+        TARIFF_PRESET_CARUNA_GENERAL_2026_01,
+        current_date=date(2027, 1, 1),
+    )
+
+    assert expiring is not None
+    assert expiring.issue_translation_key == "tariff_preset_expiring"
+    assert expired is not None
+    assert expired.issue_translation_key == "tariff_preset_expired"
 
 
 def test_normalize_tariff_options_applies_preset_values() -> None:
