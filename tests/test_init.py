@@ -91,6 +91,7 @@ async def test_async_setup_entry_sets_runtime_data_and_forwards_platforms(
     coordinator.async_load_economics_state.assert_awaited_once()
     coordinator.async_load_analytics_state.assert_awaited_once()
     coordinator.async_config_entry_first_refresh.assert_awaited_once()
+    coordinator.refresh_tariff_preset_issue.assert_called_once()
     coordinator.async_backfill_energy.assert_not_awaited()
     assert entry.runtime_data is coordinator
     mock_forward_setups.assert_awaited_once_with(
@@ -153,6 +154,7 @@ async def test_async_unload_entry_unloads_platforms(hass) -> None:
         data={CONF_API_KEY: "test-api-key"},
     )
     entry.add_to_hass(hass)
+    entry.runtime_data = MagicMock()
 
     with patch.object(
         hass.config_entries,
@@ -162,6 +164,7 @@ async def test_async_unload_entry_unloads_platforms(hass) -> None:
         result = await async_unload_entry(hass, entry)
 
     assert result is True
+    entry.runtime_data.clear_tariff_preset_issue.assert_called_once()
     mock_unload_platforms.assert_awaited_once_with(
         entry, [Platform.BUTTON, Platform.SENSOR]
     )

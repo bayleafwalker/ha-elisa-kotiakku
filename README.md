@@ -240,6 +240,7 @@ Starter tariff presets bundled in the integration:
 Preset behavior:
 
 - Presets are versioned snapshots, not live tariff lookups.
+- Home Assistant raises a Repairs warning when the selected preset is near its `valid_until` date or already expired.
 - Presets currently apply tariff mode and transfer-side prices when options are saved.
 - Retailer margins, export adjustments, and power-fee settings remain user-controlled.
 - Switch back to `custom` if you want full manual control of transfer prices.

@@ -303,9 +303,9 @@
         },
         "data_description": {
           "battery_expected_usable_capacity_kwh": "Usable capacity of your battery pack in kWh. Used for health, cycle, and backup-runtime estimates. Set to 0 to disable capacity-based analytics.",
-          "battery_monthly_cost": "Monthly battery lease or instalment (osamaksu) cost in EUR. Used to calculate the first profitable day of each month. Set to 0 to disable or use total cost instead.",
+          "battery_monthly_cost": "Monthly battery lease or instalment (osamaksu) cost in EUR. Used to calculate the first profitable day of each month. Akkureservihyvitys is subtracted from this value automatically. Set to 0 to disable or use total cost instead.",
           "battery_total_cost": "Total battery system cost in EUR. Used for payback period estimation. If monthly cost is not set, total cost ÷ 120 is used as the monthly cost.",
-          "akkureservihyvitys": "Monthly compensation for allowing battery use in grid reserve (akkureservi). The service fee is waived when this is accepted. Subtracted from derived monthly cost when using total cost. Set to 0 if not applicable.",
+          "akkureservihyvitys": "Monthly compensation for allowing battery use in grid reserve (akkureservi). The service fee is waived when this is accepted. Subtracted from monthly cost in profitability calculations. Set to 0 if not applicable.",
           "startup_backfill_hours": "Hours of historical data to import automatically on startup. Set to 0 to disable automatic startup backfill.",
           "tariff_preset": "Select your grid operator's transfer tariff. Presets automatically set the tariff mode and grid transfer fees when saved. All other fields (retailer margins, taxes, export fees) must be configured manually.",
           "tariff_mode": "Controls how import pricing is structured. Automatically set by preset; override only with 'Custom'. 'Spot only' uses only spot price + margin. 'Flat' adds a single transfer fee. 'Day/Night' uses separate fees for 07–22 / 22–07. 'Seasonal Day/Night' uses winter daytime (Nov–Mar, Mon–Sat 07–22) vs other times.",
@@ -322,6 +322,16 @@
           "power_fee_rate": "Monthly power fee rate per qualifying kW. Not auto-set by presets — always configure manually. Enter the household-billing gross value."
         }
       }
+    }
+  },
+  "issues": {
+    "tariff_preset_expiring": {
+      "title": "Tariff preset nearing expiry",
+      "description": "The selected tariff preset {preset_name} is only intended for the dated snapshot window {valid_from} to {valid_until}. Review the preset or switch to Custom before it goes stale."
+    },
+    "tariff_preset_expired": {
+      "title": "Tariff preset expired",
+      "description": "The selected tariff preset {preset_name} was only intended for the dated snapshot window {valid_from} to {valid_until}. Review the preset or switch to Custom so transfer prices stay current."
     }
   },
   "selector": {

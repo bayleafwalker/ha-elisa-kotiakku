@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from custom_components.elisa_kotiakku.energy_store import EnergyStore
 
 from .conftest import SAMPLE_MEASUREMENT
@@ -56,3 +58,26 @@ def test_process_measurement_applies_once() -> None:
     assert store.get_total("house_consumption_energy") == 0.2
     assert store.get_total("battery_charge_energy") == 0.25
     assert store.last_period_end == "2025-12-17T00:05:00+02:00"
+
+
+def test_measurement_energy_deltas_respect_sign_conventions() -> None:
+    """Import/export and charge/discharge signs should map to the correct totals."""
+    store = EnergyStore()
+    measurement = replace(
+        SAMPLE_MEASUREMENT,
+        period_start="2025-12-17T00:00:00+02:00",
+        period_end="2025-12-17T00:05:00+02:00",
+        grid_power_kw=-1.2,
+        solar_power_kw=2.4,
+        house_power_kw=-3.6,
+        battery_power_kw=1.8,
+    )
+
+    deltas = store.measurement_energy_deltas(measurement)
+
+    assert deltas["grid_import_energy"] == 0.0
+    assert deltas["grid_export_energy"] == pytest.approx(0.1)
+    assert deltas["solar_production_energy"] == pytest.approx(0.2)
+    assert deltas["house_consumption_energy"] == pytest.approx(0.3)
+    assert deltas["battery_charge_energy"] == 0.0
+    assert deltas["battery_discharge_energy"] == pytest.approx(0.15)

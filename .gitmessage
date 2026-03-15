@@ -1,0 +1,41 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+#
+# ── Type ──────────────────────────────────────────────
+#  feat:     New feature or sensor
+#  fix:      Bug fix
+#  refactor: Code change that neither fixes a bug nor adds a feature
+#  docs:     Documentation only
+#  test:     Adding or correcting tests
+#  chore:    Build, CI, tooling, or dependency changes
+#  style:    Formatting, whitespace (no logic change)
+#  perf:     Performance improvement
+#
+# ── Scope (optional) ─────────────────────────────────
+#  coordinator, payback, tariff, sensor, config_flow,
+#  diagnostics, api, energy, economics, analytics,
+#  processing, ci, release, translations, docs
+#
+# ── Rules ─────────────────────────────────────────────
+#  - Subject: imperative mood, lowercase, no period, ≤72 chars
+#  - Body: wrap at 72 chars, explain *what* and *why*
+#  - Footer: reference issues (Fixes #123) or note breaking changes
+#  - Breaking changes: add BREAKING CHANGE: in footer
+#
+# ── Examples ──────────────────────────────────────────
+#  feat(payback): add monthly first day of profit sensor
+#  fix(coordinator): handle empty API response during backfill
+#  refactor(sensor): split measurement sensors into own module
+#  chore(release): bump version to 1.4.0
+#  docs: update tariff preset notes in README
+#  test(util): add parse_iso8601 edge case coverage
+#
+# ── Branch naming ─────────────────────────────────────
+#  feature/<slug>   — new capability
+#  fix/<slug>       — bug fix
+#  refactor/<slug>  — structural improvement
+#  chore/<slug>     — CI, deps, tooling
+#  docs/<slug>      — documentation only

@@ -75,6 +75,7 @@ async def async_setup_entry(
     await coordinator.async_load_economics_state()
     await coordinator.async_load_analytics_state()
     await coordinator.async_config_entry_first_refresh()
+    coordinator.refresh_tariff_preset_issue()
 
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     entry.runtime_data = coordinator
@@ -89,6 +90,9 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: ElisaKotiakkuConfigEntry
 ) -> bool:
     """Unload a config entry."""
+    coordinator = getattr(entry, "runtime_data", None)
+    if coordinator is not None:
+        coordinator.clear_tariff_preset_issue()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

@@ -23,6 +23,9 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Secrets
+.env
+
 # Distribution
 *.egg-info/
 dist/

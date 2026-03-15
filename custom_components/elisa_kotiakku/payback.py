@@ -12,9 +12,13 @@ def effective_monthly_cost(
     battery_total_cost: float,
     akkureservihyvitys: float,
 ) -> float | None:
-    """Return configured monthly cost, deriving from total if needed."""
+    """Return effective monthly cost after akkureservi compensation.
+
+    Akkureservihyvitys is always subtracted from the gross monthly cost,
+    whether it is set directly or derived from the total battery cost.
+    """
     if battery_monthly_cost > 0:
-        return battery_monthly_cost
+        return battery_monthly_cost - akkureservihyvitys
     if battery_total_cost > 0:
         derived = battery_total_cost / 120.0
         return derived - akkureservihyvitys
