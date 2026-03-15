@@ -169,7 +169,9 @@ def test_run_contract_check_normalizes_mixed_offsets_in_summary() -> None:
 class TestLoadEnvFile:
     """Tests for .env file loading."""
 
-    def test_loads_key_from_env_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_loads_key_from_env_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Key=Value pairs are loaded into os.environ."""
         env_file = tmp_path / ".env"
         env_file.write_text("GRIDLE_API_KEY=test-key-123\n", encoding="utf-8")
@@ -186,7 +188,9 @@ class TestLoadEnvFile:
         assert os.environ.get("GRIDLE_API_KEY") == "test-key-123"
         monkeypatch.delenv("GRIDLE_API_KEY", raising=False)
 
-    def test_does_not_overwrite_existing_env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_does_not_overwrite_existing_env(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Existing environment variables take precedence."""
         env_file = tmp_path / ".env"
         env_file.write_text("GRIDLE_API_KEY=from-file\n", encoding="utf-8")
@@ -206,7 +210,9 @@ class TestLoadEnvFile:
         )
         _load_env_file()  # should not raise
 
-    def test_skips_comments_and_blank_lines(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_skips_comments_and_blank_lines(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Comments and blank lines are ignored."""
         env_file = tmp_path / ".env"
         env_file.write_text("# comment\n\nGRIDLE_API_KEY=val\n", encoding="utf-8")
