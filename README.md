@@ -254,9 +254,9 @@ The Kotiakku service has a fixed monthly fee that is waived when the user accept
 
 Configuration options (in Options flow):
 
-- `battery_monthly_cost`: monthly instalment or lease cost in EUR. When set, this is treated as the aggregate net monthly cost (user accounts for service fees and compensation). Set to `0` to derive from total cost instead.
+- `battery_monthly_cost`: monthly instalment or lease cost in EUR. When set, this is treated as the already-effective net monthly cost after any fixed compensation. Set to `0` to derive from total cost instead.
 - `battery_total_cost`: total battery system cost in EUR. Used for payback estimation. If monthly cost is not set, `total_cost / 120` is used as the monthly cost (10-year assumption), minus akkureservihyvitys.
-- `akkureservihyvitys`: monthly compensation for grid reserve participation in EUR. Subtracted from the derived monthly cost (when using total cost), and added to the effective monthly savings rate for payback estimation. Both retroactive (credited for already-tracked months) and forward-looking. Set to `0` if not applicable.
+- `akkureservihyvitys`: monthly compensation for grid reserve participation in EUR. Subtracted from the derived monthly cost when using total cost, and added to the effective monthly savings rate for payback estimation. Both retroactive (credited for already-tracked months) and forward-looking. Set to `0` if not applicable.
 
 Sensors:
 

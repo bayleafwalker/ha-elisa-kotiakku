@@ -188,10 +188,11 @@ class EconomicsEngine:
         grid_export_kw = max(-(measurement.grid_power_kw or 0.0), 0.0)
         grid_import_kwh = grid_import_kw * hours
         grid_export_kwh = grid_export_kw * hours
+        power_fee_import_kw = _power_fee_import_kw(measurement)
 
         month_key = timestamp.strftime("%Y-%m")
-        if grid_import_kw > self.grid_import_monthly_peaks.get(month_key, 0.0):
-            self.grid_import_monthly_peaks[month_key] = grid_import_kw
+        if power_fee_import_kw > self.grid_import_monthly_peaks.get(month_key, 0.0):
+            self.grid_import_monthly_peaks[month_key] = power_fee_import_kw
 
         purchase_cost = _cost_or_zero(
             rates.import_unit_price_cents_per_kwh, grid_import_kwh
@@ -235,7 +236,7 @@ class EconomicsEngine:
         power_fee_delta = self._update_power_fee_tracking(
             tariff_config=tariff_config,
             timestamp=timestamp,
-            import_kw=grid_import_kw,
+            import_kw=power_fee_import_kw,
             hours=hours,
             hour_buckets=self.power_fee_hour_buckets,
             monthly_estimates=self.power_fee_monthly_estimates,
@@ -435,6 +436,18 @@ def _cost_or_zero(unit_price_cents_per_kwh: float | None, energy_kwh: float) -> 
 def _measurement_timestamp(measurement: MeasurementData) -> datetime | None:
     """Return measurement period start timestamp."""
     return _parse_iso8601(measurement.period_start)
+
+
+def _power_fee_import_kw(measurement: MeasurementData) -> float:
+    """Return the import-demand basis used for transfer power-fee estimates.
+
+    Use the directional grid-to-house flow when it is available so battery
+    charging from the grid does not inflate the household demand estimate.
+    Fall back to net grid import for older or incomplete payloads.
+    """
+    if measurement.grid_to_house_kw is not None:
+        return max(measurement.grid_to_house_kw, 0.0)
+    return max(measurement.grid_power_kw or 0.0, 0.0)
 
 
 def _load_float_map(raw: object) -> dict[str, float]:

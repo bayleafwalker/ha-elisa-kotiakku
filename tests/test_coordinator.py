@@ -964,9 +964,21 @@ class TestEconomicsMath:
         """Power peak should be reported even when no power fee rule is set."""
         mock_config_entry.options = {}
         mock_api_client.async_get_range.return_value = [
-            _measurement_at("2026-01-05T08:00:00+02:00", grid_power_kw=5.0),
-            _measurement_at("2026-01-05T09:00:00+02:00", grid_power_kw=8.5),
-            _measurement_at("2026-01-05T10:00:00+02:00", grid_power_kw=2.0),
+            _measurement_at(
+                "2026-01-05T08:00:00+02:00",
+                grid_power_kw=5.0,
+                grid_to_house_kw=5.0,
+            ),
+            _measurement_at(
+                "2026-01-05T09:00:00+02:00",
+                grid_power_kw=8.5,
+                grid_to_house_kw=8.5,
+            ),
+            _measurement_at(
+                "2026-01-05T10:00:00+02:00",
+                grid_power_kw=2.0,
+                grid_to_house_kw=2.0,
+            ),
         ]
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
@@ -988,7 +1000,11 @@ class TestEconomicsMath:
             CONF_POWER_FEE_RATE: 10.0,
         }
         mock_api_client.async_get_range.return_value = [
-            _measurement_at(f"2026-01-05T08:{minute:02d}:00+02:00", grid_power_kw=6.0)
+            _measurement_at(
+                f"2026-01-05T08:{minute:02d}:00+02:00",
+                grid_power_kw=6.0,
+                grid_to_house_kw=6.0,
+            )
             for minute in range(0, 30, 5)
         ]
         coordinator = _make_coordinator(
@@ -1012,9 +1028,21 @@ class TestEconomicsMath:
             CONF_POWER_FEE_RATE: 12.0,
         }
         mock_api_client.async_get_range.return_value = [
-            _measurement_at("2026-01-05T08:00:00+02:00", grid_power_kw=9.0),
-            _measurement_at("2026-01-05T09:00:00+02:00", grid_power_kw=6.0),
-            _measurement_at("2026-01-05T10:00:00+02:00", grid_power_kw=3.0),
+            _measurement_at(
+                "2026-01-05T08:00:00+02:00",
+                grid_power_kw=9.0,
+                grid_to_house_kw=9.0,
+            ),
+            _measurement_at(
+                "2026-01-05T09:00:00+02:00",
+                grid_power_kw=6.0,
+                grid_to_house_kw=6.0,
+            ),
+            _measurement_at(
+                "2026-01-05T10:00:00+02:00",
+                grid_power_kw=3.0,
+                grid_to_house_kw=3.0,
+            ),
         ]
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
@@ -1038,10 +1066,26 @@ class TestEconomicsMath:
             CONF_POWER_FEE_RATE: 10.0,
         }
         mock_api_client.async_get_range.return_value = [
-            _measurement_at("2026-01-05T08:00:00+02:00", grid_power_kw=9.0),
-            _measurement_at("2026-01-05T09:00:00+02:00", grid_power_kw=6.0),
-            _measurement_at("2026-01-05T10:00:00+02:00", grid_power_kw=3.0),
-            _measurement_at("2026-01-05T23:00:00+02:00", grid_power_kw=20.0),
+            _measurement_at(
+                "2026-01-05T08:00:00+02:00",
+                grid_power_kw=9.0,
+                grid_to_house_kw=9.0,
+            ),
+            _measurement_at(
+                "2026-01-05T09:00:00+02:00",
+                grid_power_kw=6.0,
+                grid_to_house_kw=6.0,
+            ),
+            _measurement_at(
+                "2026-01-05T10:00:00+02:00",
+                grid_power_kw=3.0,
+                grid_to_house_kw=3.0,
+            ),
+            _measurement_at(
+                "2026-01-05T23:00:00+02:00",
+                grid_power_kw=20.0,
+                grid_to_house_kw=20.0,
+            ),
         ]
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
@@ -1053,6 +1097,39 @@ class TestEconomicsMath:
         # the fee-qualifying hours.  Fee estimate still uses only qualifying.
         assert coordinator.get_current_month_power_peak() == 20.0
         assert coordinator.get_current_month_power_fee_estimate() == 60.0
+
+    async def test_power_fee_uses_grid_to_house_demand_when_directional_flow_exists(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Grid charging should not inflate the transfer power-fee estimate."""
+        mock_config_entry.options = {
+            CONF_POWER_FEE_RULE: POWER_FEE_RULE_MONTHLY_MAX_ALL_HOURS,
+            CONF_POWER_FEE_RATE: 10.0,
+        }
+        mock_api_client.async_get_range.return_value = [
+            _measurement_at(
+                "2026-01-05T08:00:00+02:00",
+                grid_power_kw=8.0,
+                grid_to_house_kw=3.0,
+            ),
+            _measurement_at(
+                "2026-01-05T09:00:00+02:00",
+                grid_power_kw=7.0,
+                grid_to_house_kw=4.0,
+            ),
+        ]
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+
+        await coordinator.async_backfill_energy("a", "b")
+
+        assert coordinator.get_current_month_power_peak() == 4.0
+        assert coordinator.get_current_month_power_fee_estimate() == 40.0
+        assert coordinator.get_economics_total("power_fee_cost") == 40.0
 
     async def test_backfill_wraps_api_error_as_update_failed(
         self,

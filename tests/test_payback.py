@@ -180,7 +180,7 @@ class TestEffectiveMonthlyCost:
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        """When monthly_cost is set directly, akkureservi is subtracted."""
+        """When monthly_cost is set directly, it is treated as net already."""
         mock_config_entry.options = {
             CONF_BATTERY_MONTHLY_COST: 49.0,
             CONF_BATTERY_TOTAL_COST: 6000.0,
@@ -189,7 +189,7 @@ class TestEffectiveMonthlyCost:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        assert coordinator._effective_monthly_cost() == pytest.approx(39.0)
+        assert coordinator._effective_monthly_cost() == pytest.approx(49.0)
 
 
 class TestMonthlyFirstDayOfProfit:
@@ -394,6 +394,29 @@ class TestMonthlyFirstDayOfProfit:
         # cost per month = 1200/120 = 10.0
         # daily_rate = 20/17 ≈ 1.176
         # breakeven_day = 10.0 / 1.176 ≈ 8.5 → day 9
+        result = coordinator.get_monthly_first_day_of_profit()
+        assert result is not None
+        assert result == 9
+
+    def test_profit_day_uses_direct_monthly_cost_without_double_counting_compensation(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Direct monthly cost should already represent the remaining net sum."""
+        mock_config_entry.options = {
+            CONF_BATTERY_MONTHLY_COST: 50.0,
+            CONF_AKKURESERVIHYVITYS: 10.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator.data = SAMPLE_MEASUREMENT  # day=17 of December
+        coordinator._economics_state.monthly_battery_savings = {
+            "2025-12": 100.0
+        }
+
         result = coordinator.get_monthly_first_day_of_profit()
         assert result is not None
         assert result == 9

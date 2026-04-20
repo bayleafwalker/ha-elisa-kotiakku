@@ -349,7 +349,7 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         )
 
     def get_current_month_power_peak(self) -> float | None:
-        """Return current month's peak grid import power in kW."""
+        """Return current month's peak grid-consumption demand in kW."""
         month_key = self._current_measurement_month_key()
         if month_key is None:
             return None
@@ -446,9 +446,9 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
     def _effective_monthly_cost(self) -> float | None:
         """Return effective monthly cost after akkureservi compensation.
 
-        Akkureservihyvitys is always subtracted from the gross monthly cost,
-        whether it is set directly via ``battery_monthly_cost`` or derived
-        from ``battery_total_cost`` (÷ 120 months).
+        A direct monthly cost is treated as the already-effective aggregate
+        monthly amount. Akkureservihyvitys is only subtracted when the monthly
+        cost is derived from ``battery_total_cost`` (÷ 120 months).
         """
         return effective_monthly_cost(
             battery_monthly_cost=self.battery_monthly_cost,
