@@ -1,4 +1,26 @@
-# AGENTS.md — Project Constraints
+# AGENTS.md — ha-elisa-kotiakku
+
+## Tech Stack
+
+Primary language: Python ≥ 3.12. Home Assistant integration (no standalone test runner — use `pytest` with HA test helpers). No extra pip dependencies beyond `aiohttp` (provided by HA core). Markdown for documentation.
+
+## Environment setup
+
+No project-specific environment variables required. No cluster context — this is a HACS-compatible integration deployed via Home Assistant, not a standalone service.
+
+**Validation:** Confirm Python ≥ 3.12 is active before running tests.
+
+## Development workflow
+
+- Run the full test suite after making changes and report pass/fail before committing.
+- **Never commit with failing tests.**
+- Behavior changes must include updated or new tests in the same commit.
+- Keep all integration code inside `custom_components/elisa_kotiakku/`.
+- Use only `aiohttp` for HTTP — do not introduce new pip dependencies.
+
+### Self-healing test loop
+
+If tests fail after a change, diagnose the root cause, fix, and re-run — up to **5 cycles** — before escalating. Only escalate if still failing after 5 attempts or if a design decision is required.
 
 ## Project
 
