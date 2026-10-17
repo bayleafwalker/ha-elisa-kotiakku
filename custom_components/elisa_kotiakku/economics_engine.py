@@ -36,6 +36,9 @@ class EconomicsEngine:
             key: 0 for key in ECONOMICS_ATTRIBUTION_SKIP_KEYS
         }
         self.monthly_battery_savings: dict[str, float] = {}
+        self.monthly_processed_window_counts: dict[str, int] = {}
+        self.monthly_savings_window_counts: dict[str, int] = {}
+        self.monthly_skipped_savings_window_counts: dict[str, int] = {}
 
     def restore(self, stored: object, *, expected_tariff_signature: str) -> None:
         """Restore persisted economics values when tariff options still match."""
@@ -92,6 +95,15 @@ class EconomicsEngine:
         self.monthly_battery_savings = _load_float_map(
             stored.get("monthly_battery_savings")
         )
+        self.monthly_processed_window_counts = _load_int_map(
+            stored.get("monthly_processed_window_counts"), allowed_keys=()
+        )
+        self.monthly_savings_window_counts = _load_int_map(
+            stored.get("monthly_savings_window_counts"), allowed_keys=()
+        )
+        self.monthly_skipped_savings_window_counts = _load_int_map(
+            stored.get("monthly_skipped_savings_window_counts"), allowed_keys=()
+        )
 
     def as_store_payload(self, *, tariff_signature: str) -> dict[str, object]:
         """Return JSON-serializable payload for persistence."""
@@ -111,6 +123,11 @@ class EconomicsEngine:
             ),
             "attribution_skipped_window_counts": self.attribution_skipped_window_counts,
             "monthly_battery_savings": self.monthly_battery_savings,
+            "monthly_processed_window_counts": self.monthly_processed_window_counts,
+            "monthly_savings_window_counts": self.monthly_savings_window_counts,
+            "monthly_skipped_savings_window_counts": (
+                self.monthly_skipped_savings_window_counts
+            ),
         }
 
     def is_unprocessed_period(self, period_end: str) -> bool:
@@ -191,6 +208,9 @@ class EconomicsEngine:
         power_fee_import_kw = _power_fee_import_kw(measurement)
 
         month_key = timestamp.strftime("%Y-%m")
+        self.monthly_processed_window_counts[month_key] = (
+            self.monthly_processed_window_counts.get(month_key, 0) + 1
+        )
         if power_fee_import_kw > self.grid_import_monthly_peaks.get(month_key, 0.0):
             self.grid_import_monthly_peaks[month_key] = power_fee_import_kw
 
@@ -253,6 +273,9 @@ class EconomicsEngine:
         )
         if any(value is None for value in required_directional_flows):
             self.skipped_savings_window_count += 1
+            self.monthly_skipped_savings_window_counts[month_key] = (
+                self.monthly_skipped_savings_window_counts.get(month_key, 0) + 1
+            )
             self.mark_processed(measurement.period_end)
             return True
 
@@ -260,6 +283,10 @@ class EconomicsEngine:
             rates.import_unit_price_cents_per_kwh is None
             or rates.export_unit_price_cents_per_kwh is None
         ):
+            self.skipped_savings_window_count += 1
+            self.monthly_skipped_savings_window_counts[month_key] = (
+                self.monthly_skipped_savings_window_counts.get(month_key, 0) + 1
+            )
             self.mark_processed(measurement.period_end)
             return True
 
@@ -312,6 +339,9 @@ class EconomicsEngine:
         self.totals["battery_savings"] += savings_delta
         self.monthly_battery_savings[month_key] = (
             self.monthly_battery_savings.get(month_key, 0.0) + savings_delta
+        )
+        self.monthly_savings_window_counts[month_key] = (
+            self.monthly_savings_window_counts.get(month_key, 0) + 1
         )
         self.mark_processed(measurement.period_end)
         return True
@@ -472,7 +502,21 @@ def _load_int_map(
         return loaded
 
     for key, value in raw.items():
-        if key in loaded and isinstance(value, int):
+        valid_month_key = (
+            isinstance(key, str)
+            and len(key) == 7
+            and key[4] == "-"
+            and key[:4].isdigit()
+            and key[5:].isdigit()
+            and 1 <= int(key[5:]) <= 12
+        )
+        if (
+            isinstance(key, str)
+            and (key in loaded if allowed_keys else valid_month_key)
+            and isinstance(value, int)
+            and not isinstance(value, bool)
+            and value >= 0
+        ):
             loaded[key] = value
     return loaded
 
