@@ -512,6 +512,31 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         """Return monthly battery savings map used for payback context."""
         return dict(self._economics_state.monthly_battery_savings)
 
+    def get_monthly_battery_evidence(self) -> dict[str, dict[str, Any]]:
+        """Return monthly window counts for battery-savings qualification."""
+        state = self._economics_state
+        months = (
+            set(state.monthly_processed_window_counts)
+            | set(state.monthly_savings_window_counts)
+            | set(state.monthly_skipped_savings_window_counts)
+        )
+        return {
+            month: {
+                "processed_window_count": state.monthly_processed_window_counts.get(
+                    month, 0
+                ),
+                "savings_window_count": state.monthly_savings_window_counts.get(
+                    month, 0
+                ),
+                "skipped_savings_window_count": (
+                    state.monthly_skipped_savings_window_counts.get(month, 0)
+                ),
+                "tariff_snapshot_id": state.monthly_tariff_snapshot_ids.get(month),
+                "tariff_snapshot": state.monthly_tariff_snapshots.get(month),
+            }
+            for month in sorted(months)
+        }
+
     def get_last_api_error(self) -> dict[str, str | int | None] | None:
         """Return the latest API error details for diagnostics."""
         if self._last_api_error is None:

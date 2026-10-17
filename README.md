@@ -151,6 +151,24 @@ Current formulas:
 
 `Total battery savings` can be negative if the observed battery behavior underperforms the no-battery baseline for the processed windows.
 
+### Read-only evidence attributes
+
+The `Total battery savings` sensor exposes an `evidence_contract_version: 1.0`
+attribute set for downstream household reporting. It includes the monthly
+battery-savings estimates, per-month processed, savings-qualified, and skipped
+window counters, the configured tariff snapshot and stable snapshot ID, and the
+battery cost inputs used by the local economics calculation. The calculation is identified as
+`battery_vs_no_battery_site_cost_v1`; savings remain estimates based on the
+source's flow attribution and tariff settings, not observed bill savings or
+causal proof. The attributes do not contain the Gridle API key and add no battery
+control or actuation interface.
+Previously persisted history has no per-month counters and remains unqualified
+for consumers that require this contract.
+
+The selected tariff settings are a household-configured snapshot. Dated tariff
+presets may be stale, and the operator remains responsible for checking the
+current contract and fees before relying on the estimate.
+
 Asset-attribution helper formulas:
 
 - Solar used in house value = `solar_to_house_kWh * (active import unit price + active import transfer fee + active electricity tax fee)`

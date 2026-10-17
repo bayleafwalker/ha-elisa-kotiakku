@@ -19,7 +19,7 @@ from custom_components.elisa_kotiakku.sensor import (
     _active_rate_value,
     async_setup_entry,
 )
-from custom_components.elisa_kotiakku.tariff import ActiveTariffRates
+from custom_components.elisa_kotiakku.tariff import ActiveTariffRates, TariffConfig
 
 from .conftest import SAMPLE_MEASUREMENT
 
@@ -352,24 +352,86 @@ class TestElisaKotiakkuCoordinatorSensor:
         assert peak.native_value == 0.0
         assert estimate.native_value == 0.0
 
-    def test_battery_savings_attributes_include_skip_count(
+    def test_battery_savings_attributes_publish_versioned_evidence_contract(
         self, mock_coordinator: MagicMock
     ) -> None:
         mock_coordinator.get_economics_last_period_end = MagicMock(
             return_value="2025-12-17T00:05:00+02:00"
         )
         mock_coordinator.get_skipped_savings_window_count = MagicMock(return_value=3)
-        mock_coordinator.tariff_config.power_fee_rule = "monthly_max_all_hours"
+        mock_coordinator.tariff_config = TariffConfig(
+            tariff_mode="day_night",
+            power_fee_rule="monthly_max_all_hours",
+        )
+        mock_coordinator.get_monthly_battery_savings = MagicMock(
+            return_value={"2026-01": 12.3456789, "2025-12": -2.5}
+        )
+        mock_coordinator.get_monthly_battery_evidence = MagicMock(
+            return_value={
+                "2025-12": {
+                    "processed_window_count": 576,
+                    "savings_window_count": 575,
+                    "skipped_savings_window_count": 1,
+                    "tariff_snapshot_id": "month-tariff-id",
+                    "tariff_snapshot": {"tariff_mode": "spot_only"},
+                }
+            }
+        )
+        mock_coordinator.economics_processed_period_count = 576
+        mock_coordinator.battery_monthly_cost = 49.0
+        mock_coordinator.battery_total_cost = 6000.0
+        mock_coordinator.akkureservihyvitys = 10.0
         mock_coordinator.get_active_tariff_rates.return_value = _SAMPLE_ACTIVE_RATES
         sensor = self._make_sensor(mock_coordinator, "total_battery_savings")
-        assert sensor.extra_state_attributes == {
+        attrs = sensor.extra_state_attributes
+        assert attrs is not None
+        assert attrs == {
             "last_period_end": "2025-12-17T00:05:00+02:00",
             "power_fee_rule": "monthly_max_all_hours",
             "tariff_mode": "day_night",
             "tariff_period": "night",
             "skipped_windows": 3,
             "may_be_negative_when_battery_strategy_underperforms": True,
+            "evidence_contract_version": "1.0",
+            "calculation_method": "battery_vs_no_battery_site_cost_v1",
+            "source_period_minutes": 5,
+            "tariff_snapshot_id": attrs["tariff_snapshot_id"],
+            "tariff_snapshot": {
+                "tariff_preset": "custom",
+                "tariff_mode": "day_night",
+                "import_retailer_margin_cents_per_kwh": 0.0,
+                "export_retailer_adjustment_cents_per_kwh": 0.0,
+                "grid_import_transfer_fee_cents_per_kwh": 0.0,
+                "grid_export_transfer_fee_cents_per_kwh": 0.0,
+                "electricity_tax_cents_per_kwh": 0.0,
+                "day_import_retailer_margin_cents_per_kwh": 0.0,
+                "night_import_retailer_margin_cents_per_kwh": 0.0,
+                "day_grid_import_transfer_fee_cents_per_kwh": 0.0,
+                "night_grid_import_transfer_fee_cents_per_kwh": 0.0,
+                "power_fee_rule": "monthly_max_all_hours",
+                "power_fee_rate_eur_per_kw_month": 0.0,
+            },
+            "monthly_battery_savings_eur": {
+                "2025-12": -2.5,
+                "2026-01": 12.345679,
+            },
+            "monthly_battery_evidence": {
+                "2025-12": {
+                    "processed_window_count": 576,
+                    "savings_window_count": 575,
+                    "skipped_savings_window_count": 1,
+                    "estimated_savings_eur": -2.5,
+                    "tariff_snapshot_id": "month-tariff-id",
+                    "tariff_snapshot": {"tariff_mode": "spot_only"},
+                }
+            },
+            "economics_processed_period_count": 576,
+            "battery_monthly_cost_eur": 49.0,
+            "battery_total_cost_eur": 6000.0,
+            "akkureservihyvitys_monthly_eur": 10.0,
         }
+        assert isinstance(attrs["tariff_snapshot_id"], str)
+        assert len(attrs["tariff_snapshot_id"]) == 16
 
     def test_power_fee_estimate_attributes_explain_monotonic_behavior(
         self, mock_coordinator: MagicMock

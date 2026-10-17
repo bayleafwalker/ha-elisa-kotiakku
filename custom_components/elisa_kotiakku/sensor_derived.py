@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -495,10 +497,10 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
         return self.entity_description.value_fn(self.coordinator)
 
     @property
-    def extra_state_attributes(self) -> dict[str, str | int | float | bool] | None:
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         """Expose domain-specific processing state and heuristic context."""
         key = self.entity_description.key
-        attrs: dict[str, str | int | float] = {}
+        attrs: dict[str, Any] = {}
 
         if key in _ECONOMICS_SENSOR_KEYS:
             economics_last_period_end = (
@@ -521,6 +523,47 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
                 attrs[
                     "may_be_negative_when_battery_strategy_underperforms"
                 ] = True
+                # Stable, local HA attributes for downstream reporting. They
+                # expose calculation inputs and limits without granting access
+                # to the provider API key or any actuation service.
+                tariff_config = self.coordinator.tariff_config
+                tariff_snapshot = asdict(tariff_config)
+                attrs["evidence_contract_version"] = "1.0"
+                attrs["calculation_method"] = "battery_vs_no_battery_site_cost_v1"
+                attrs["source_period_minutes"] = 5
+                attrs["tariff_snapshot_id"] = hashlib.sha256(
+                    tariff_config.signature().encode("utf-8")
+                ).hexdigest()[:16]
+                attrs["tariff_snapshot"] = tariff_snapshot
+                attrs["monthly_battery_savings_eur"] = {
+                    month: round(value, 6)
+                    for month, value in sorted(
+                        self.coordinator.get_monthly_battery_savings().items()
+                    )
+                }
+                attrs["monthly_battery_evidence"] = {
+                    month: {
+                        **counts,
+                        "estimated_savings_eur": attrs[
+                            "monthly_battery_savings_eur"
+                        ].get(month),
+                    }
+                    for month, counts in self.coordinator
+                    .get_monthly_battery_evidence()
+                    .items()
+                }
+                attrs["economics_processed_period_count"] = (
+                    self.coordinator.economics_processed_period_count
+                )
+                attrs["battery_monthly_cost_eur"] = round(
+                    self.coordinator.battery_monthly_cost, 6
+                )
+                attrs["battery_total_cost_eur"] = round(
+                    self.coordinator.battery_total_cost, 6
+                )
+                attrs["akkureservihyvitys_monthly_eur"] = round(
+                    self.coordinator.akkureservihyvitys, 6
+                )
 
             if key in {
                 "total_solar_used_in_house_value",
