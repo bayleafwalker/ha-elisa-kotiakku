@@ -547,7 +547,6 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
                         "estimated_savings_eur": attrs[
                             "monthly_battery_savings_eur"
                         ].get(month),
-                        "tariff_snapshot_id": attrs["tariff_snapshot_id"],
                     }
                     for month, counts in self.coordinator
                     .get_monthly_battery_evidence()

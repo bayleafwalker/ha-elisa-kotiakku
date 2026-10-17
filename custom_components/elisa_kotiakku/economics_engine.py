@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+from dataclasses import asdict
 from datetime import datetime
+from typing import Any
 
 from .api import MeasurementData
 from .const import ECONOMICS_ATTRIBUTION_SKIP_KEYS, ECONOMICS_TOTAL_KEYS
@@ -39,6 +42,8 @@ class EconomicsEngine:
         self.monthly_processed_window_counts: dict[str, int] = {}
         self.monthly_savings_window_counts: dict[str, int] = {}
         self.monthly_skipped_savings_window_counts: dict[str, int] = {}
+        self.monthly_tariff_snapshot_ids: dict[str, str | None] = {}
+        self.monthly_tariff_snapshots: dict[str, dict[str, Any] | None] = {}
 
     def restore(self, stored: object, *, expected_tariff_signature: str) -> None:
         """Restore persisted economics values when tariff options still match."""
@@ -104,6 +109,12 @@ class EconomicsEngine:
         self.monthly_skipped_savings_window_counts = _load_int_map(
             stored.get("monthly_skipped_savings_window_counts"), allowed_keys=()
         )
+        self.monthly_tariff_snapshot_ids = _load_nullable_string_map(
+            stored.get("monthly_tariff_snapshot_ids")
+        )
+        self.monthly_tariff_snapshots = _load_nullable_dict_map(
+            stored.get("monthly_tariff_snapshots")
+        )
 
     def as_store_payload(self, *, tariff_signature: str) -> dict[str, object]:
         """Return JSON-serializable payload for persistence."""
@@ -128,6 +139,8 @@ class EconomicsEngine:
             "monthly_skipped_savings_window_counts": (
                 self.monthly_skipped_savings_window_counts
             ),
+            "monthly_tariff_snapshot_ids": self.monthly_tariff_snapshot_ids,
+            "monthly_tariff_snapshots": self.monthly_tariff_snapshots,
         }
 
     def is_unprocessed_period(self, period_end: str) -> bool:
@@ -208,6 +221,15 @@ class EconomicsEngine:
         power_fee_import_kw = _power_fee_import_kw(measurement)
 
         month_key = timestamp.strftime("%Y-%m")
+        tariff_snapshot_id = hashlib.sha256(
+            tariff_config.signature().encode("utf-8")
+        ).hexdigest()[:16]
+        if month_key not in self.monthly_tariff_snapshot_ids:
+            self.monthly_tariff_snapshot_ids[month_key] = tariff_snapshot_id
+            self.monthly_tariff_snapshots[month_key] = asdict(tariff_config)
+        elif self.monthly_tariff_snapshot_ids[month_key] != tariff_snapshot_id:
+            self.monthly_tariff_snapshot_ids[month_key] = None
+            self.monthly_tariff_snapshots[month_key] = None
         self.monthly_processed_window_counts[month_key] = (
             self.monthly_processed_window_counts.get(month_key, 0) + 1
         )
@@ -519,6 +541,44 @@ def _load_int_map(
         ):
             loaded[key] = value
     return loaded
+
+
+def _load_nullable_string_map(raw: object) -> dict[str, str | None]:
+    """Load per-month tariff IDs while preserving missing/mixed signatures."""
+    if not isinstance(raw, dict):
+        return {}
+    loaded: dict[str, str | None] = {}
+    for key, value in raw.items():
+        if not _is_month_key(key):
+            continue
+        if value is None or isinstance(value, str):
+            loaded[key] = value
+    return loaded
+
+
+def _load_nullable_dict_map(raw: object) -> dict[str, dict[str, Any] | None]:
+    """Load per-month tariff snapshots without accepting arbitrary nested data."""
+    if not isinstance(raw, dict):
+        return {}
+    loaded: dict[str, dict[str, Any] | None] = {}
+    for key, value in raw.items():
+        if not _is_month_key(key):
+            continue
+        if value is None or isinstance(value, dict):
+            loaded[key] = value
+    return loaded
+
+
+def _is_month_key(value: object) -> bool:
+    """Return whether a key has canonical YYYY-MM form."""
+    return (
+        isinstance(value, str)
+        and len(value) == 7
+        and value[4] == "-"
+        and value[:4].isdigit()
+        and value[5:].isdigit()
+        and 1 <= int(value[5:]) <= 12
+    )
 
 
 def _load_hour_bucket_store(raw: object) -> dict[str, dict[str, dict[str, float]]]:

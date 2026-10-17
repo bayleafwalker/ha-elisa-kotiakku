@@ -2,7 +2,10 @@ pytest
 pytest-asyncio
 pytest-cov
 aioresponses
-homeassistant
-pytest-homeassistant-custom-component
+# Keep the supported Python 3.12 test stack deterministic. The companion
+# pytest plugin requires this HA release, which carries a CPython 3.12 wheel
+# for PyYAML instead of falling back to the incompatible 6.0 source release.
+homeassistant==2025.1.4
+pytest-homeassistant-custom-component==0.13.205
 ruff
 mypy

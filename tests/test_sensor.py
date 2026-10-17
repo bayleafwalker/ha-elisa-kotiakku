@@ -372,6 +372,8 @@ class TestElisaKotiakkuCoordinatorSensor:
                     "processed_window_count": 576,
                     "savings_window_count": 575,
                     "skipped_savings_window_count": 1,
+                    "tariff_snapshot_id": "month-tariff-id",
+                    "tariff_snapshot": {"tariff_mode": "spot_only"},
                 }
             }
         )
@@ -419,7 +421,8 @@ class TestElisaKotiakkuCoordinatorSensor:
                     "savings_window_count": 575,
                     "skipped_savings_window_count": 1,
                     "estimated_savings_eur": -2.5,
-                    "tariff_snapshot_id": attrs["tariff_snapshot_id"],
+                    "tariff_snapshot_id": "month-tariff-id",
+                    "tariff_snapshot": {"tariff_mode": "spot_only"},
                 }
             },
             "economics_processed_period_count": 576,

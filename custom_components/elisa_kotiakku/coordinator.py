@@ -512,7 +512,7 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         """Return monthly battery savings map used for payback context."""
         return dict(self._economics_state.monthly_battery_savings)
 
-    def get_monthly_battery_evidence(self) -> dict[str, dict[str, int]]:
+    def get_monthly_battery_evidence(self) -> dict[str, dict[str, Any]]:
         """Return monthly window counts for battery-savings qualification."""
         state = self._economics_state
         months = (
@@ -531,6 +531,8 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
                 "skipped_savings_window_count": (
                     state.monthly_skipped_savings_window_counts.get(month, 0)
                 ),
+                "tariff_snapshot_id": state.monthly_tariff_snapshot_ids.get(month),
+                "tariff_snapshot": state.monthly_tariff_snapshots.get(month),
             }
             for month in sorted(months)
         }
