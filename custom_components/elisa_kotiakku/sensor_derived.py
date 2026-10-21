@@ -564,6 +564,11 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
                 attrs["akkureservihyvitys_monthly_eur"] = round(
                     self.coordinator.akkureservihyvitys, 6
                 )
+                attrs["battery_cost_basis"] = self.coordinator.battery_cost_basis
+                effective_cost = self.coordinator._effective_monthly_cost()
+                attrs["effective_monthly_cost_eur"] = (
+                    None if effective_cost is None else round(effective_cost, 6)
+                )
 
             if key in {
                 "total_solar_used_in_house_value",
@@ -601,6 +606,7 @@ class ElisaKotiakkuCoordinatorSensor(ElisaKotiakkuEntity, SensorEntity):
                 if effective is not None:
                     attrs["effective_monthly_cost_eur"] = round(effective, 2)
                 attrs["akkureservihyvitys_eur"] = self.coordinator.akkureservihyvitys
+                attrs["battery_cost_basis"] = self.coordinator.battery_cost_basis
                 attrs["basis"] = "linear_interpolation"
 
             if key == "payback_remaining_months":

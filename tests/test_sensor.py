@@ -381,6 +381,8 @@ class TestElisaKotiakkuCoordinatorSensor:
         mock_coordinator.battery_monthly_cost = 49.0
         mock_coordinator.battery_total_cost = 6000.0
         mock_coordinator.akkureservihyvitys = 10.0
+        mock_coordinator.battery_cost_basis = "instalment"
+        mock_coordinator._effective_monthly_cost.return_value = 39.0000004
         mock_coordinator.get_active_tariff_rates.return_value = _SAMPLE_ACTIVE_RATES
         sensor = self._make_sensor(mock_coordinator, "total_battery_savings")
         attrs = sensor.extra_state_attributes
@@ -429,9 +431,55 @@ class TestElisaKotiakkuCoordinatorSensor:
             "battery_monthly_cost_eur": 49.0,
             "battery_total_cost_eur": 6000.0,
             "akkureservihyvitys_monthly_eur": 10.0,
+            "battery_cost_basis": "instalment",
+            "effective_monthly_cost_eur": 39.0,
         }
         assert isinstance(attrs["tariff_snapshot_id"], str)
         assert len(attrs["tariff_snapshot_id"]) == 16
+
+    @pytest.mark.parametrize(
+        ("basis", "effective", "expected"),
+        [
+            ("instalment", 15.82, 15.82),
+            ("instalment", -50.0, -50.0),
+            ("total_cost", 19.99, 19.99),
+            ("total_cost", None, None),
+        ],
+    )
+    def test_battery_savings_attributes_publish_effective_monthly_cost(
+        self,
+        mock_coordinator: MagicMock,
+        basis: str,
+        effective: float | None,
+        expected: float | None,
+    ) -> None:
+        mock_coordinator.get_economics_last_period_end = MagicMock(
+            return_value="2026-09-30T23:55:00+03:00"
+        )
+        mock_coordinator.get_skipped_savings_window_count = MagicMock(return_value=0)
+        mock_coordinator.tariff_config = TariffConfig()
+        mock_coordinator.get_monthly_battery_savings = MagicMock(return_value={})
+        mock_coordinator.get_monthly_battery_evidence = MagicMock(return_value={})
+        mock_coordinator.economics_processed_period_count = 0
+        mock_coordinator.battery_monthly_cost = 65.82
+        mock_coordinator.battery_total_cost = 8398.8
+        mock_coordinator.akkureservihyvitys = 50.0
+        mock_coordinator.battery_cost_basis = basis
+        mock_coordinator._effective_monthly_cost.return_value = effective
+        mock_coordinator.get_active_tariff_rates.return_value = _SAMPLE_ACTIVE_RATES
+        sensor = self._make_sensor(mock_coordinator, "total_battery_savings")
+        attrs = sensor.extra_state_attributes
+        assert attrs is not None
+        assert attrs["evidence_contract_version"] == "1.0"
+        assert attrs["battery_cost_basis"] == basis
+        assert "effective_monthly_cost_eur" in attrs
+        if expected is None:
+            assert attrs["effective_monthly_cost_eur"] is None
+        else:
+            assert attrs["effective_monthly_cost_eur"] == pytest.approx(expected)
+        assert attrs["battery_monthly_cost_eur"] == 65.82
+        assert attrs["battery_total_cost_eur"] == 8398.8
+        assert attrs["akkureservihyvitys_monthly_eur"] == 50.0
 
     def test_power_fee_estimate_attributes_explain_monotonic_behavior(
         self, mock_coordinator: MagicMock

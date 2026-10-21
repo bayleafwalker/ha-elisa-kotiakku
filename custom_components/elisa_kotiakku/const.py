@@ -25,6 +25,7 @@ CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH = (
 CONF_BATTERY_MONTHLY_COST = "battery_monthly_cost"
 CONF_BATTERY_TOTAL_COST = "battery_total_cost"
 CONF_AKKURESERVIHYVITYS = "akkureservihyvitys"
+CONF_BATTERY_COST_BASIS = "battery_cost_basis"
 
 API_BASE_URL = "https://residential.gridle.com/api/public"
 API_MEASUREMENTS_URL = f"{API_BASE_URL}/measurements"
@@ -83,6 +84,17 @@ POWER_FEE_RULES: tuple[str, ...] = (
     POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
     POWER_FEE_RULE_MONTHLY_TOP3_WINTER_WEEKDAY_DAYTIME,
 )
+
+# Which battery cost input defines the monthly cost before akkureservihyvitys.
+# ``instalment``: the gross monthly instalment (0 = paid off).
+# ``total_cost``: total battery cost spread over 120 months.
+BATTERY_COST_BASIS_INSTALMENT = "instalment"
+BATTERY_COST_BASIS_TOTAL_COST = "total_cost"
+BATTERY_COST_BASES: tuple[str, ...] = (
+    BATTERY_COST_BASIS_INSTALMENT,
+    BATTERY_COST_BASIS_TOTAL_COST,
+)
+BATTERY_TOTAL_COST_MONTHS = 120
 
 DEFAULT_TARIFF_MODE = TARIFF_MODE_SPOT_ONLY
 DEFAULT_TARIFF_PRESET = TARIFF_PRESET_CUSTOM
