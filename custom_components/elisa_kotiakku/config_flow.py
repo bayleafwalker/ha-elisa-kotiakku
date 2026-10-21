@@ -31,8 +31,10 @@ from .api import (
     ElisaKotiakkuAuthError,
 )
 from .const import (
+    BATTERY_COST_BASES,
     CONF_AKKURESERVIHYVITYS,
     CONF_API_KEY,
+    CONF_BATTERY_COST_BASIS,
     CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
     CONF_BATTERY_MONTHLY_COST,
     CONF_BATTERY_TOTAL_COST,
@@ -74,6 +76,7 @@ from .const import (
     TARIFF_MODES,
     TARIFF_PRESETS,
 )
+from .payback import resolve_battery_cost_basis
 from .tariff import normalize_tariff_options
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,6 +139,16 @@ def _options_data_schema(options: dict[str, Any]) -> vol.Schema:
                 )
             ),
             # ── Battery cost ─────────────────────────────────────────
+            vol.Required(
+                CONF_BATTERY_COST_BASIS,
+                default=options[CONF_BATTERY_COST_BASIS],
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(BATTERY_COST_BASES),
+                    translation_key=CONF_BATTERY_COST_BASIS,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
             vol.Required(
                 CONF_BATTERY_MONTHLY_COST,
                 default=options[CONF_BATTERY_MONTHLY_COST],
@@ -366,6 +379,15 @@ def _default_options(options: Mapping[str, Any]) -> dict[str, Any]:
             )
         ),
     }
+    normalized[CONF_BATTERY_COST_BASIS] = resolve_battery_cost_basis(
+        battery_cost_basis=options.get(CONF_BATTERY_COST_BASIS),
+        battery_monthly_cost=float(
+            options.get(CONF_BATTERY_MONTHLY_COST, DEFAULT_BATTERY_MONTHLY_COST)
+        ),
+        battery_total_cost=float(
+            options.get(CONF_BATTERY_TOTAL_COST, DEFAULT_BATTERY_TOTAL_COST)
+        ),
+    )
     return normalize_tariff_options(normalized)
 
 

@@ -5,25 +5,60 @@ from __future__ import annotations
 import calendar
 from datetime import datetime
 
+from .const import (
+    BATTERY_COST_BASES,
+    BATTERY_COST_BASIS_INSTALMENT,
+    BATTERY_COST_BASIS_TOTAL_COST,
+    BATTERY_TOTAL_COST_MONTHS,
+)
+
+
+def resolve_battery_cost_basis(
+    *,
+    battery_cost_basis: str | None,
+    battery_monthly_cost: float,
+    battery_total_cost: float,
+) -> str:
+    """Return the configured cost basis, defaulting entries saved before v1.6.0.
+
+    Entries without an explicit basis use ``instalment`` when a monthly
+    instalment is configured, otherwise ``total_cost``. With neither input
+    configured ``total_cost`` is returned, which yields no effective cost.
+    """
+    if battery_cost_basis in BATTERY_COST_BASES:
+        return str(battery_cost_basis)
+    if battery_monthly_cost > 0:
+        return BATTERY_COST_BASIS_INSTALMENT
+    return BATTERY_COST_BASIS_TOTAL_COST
+
 
 def effective_monthly_cost(
     *,
+    battery_cost_basis: str,
     battery_monthly_cost: float,
     battery_total_cost: float,
     akkureservihyvitys: float,
 ) -> float | None:
-    """Return effective monthly cost after akkureservi compensation.
+    """Return the net monthly battery cost after akkureservihyvitys.
 
-    A direct monthly cost is treated as the already-effective aggregate value.
-    Akkureservihyvitys only adjusts the derived monthly cost path based on the
-    total battery cost.
+    The gross monthly cost comes from the selected basis: the gross monthly
+    instalment (``instalment``; 0 means paid off) or the total battery cost
+    spread over 120 months (``total_cost``). Akkureservihyvitys is always
+    subtracted, so the result may be negative when the compensation exceeds
+    the gross cost. ``None`` is returned only when the basis has no usable
+    input (``total_cost`` with a total cost of 0 or less).
+
+    This is a monthly-profitability figure only; payback uses the total cost
+    with compensation as a benefit (see ``payback_remaining_months``) and does
+    not consume this value, so compensation is never counted twice.
     """
-    if battery_monthly_cost > 0:
-        return battery_monthly_cost
-    if battery_total_cost > 0:
-        derived = battery_total_cost / 120.0
-        return derived - akkureservihyvitys
-    return None
+    if battery_cost_basis == BATTERY_COST_BASIS_INSTALMENT:
+        gross = max(battery_monthly_cost, 0.0)
+    elif battery_total_cost > 0:
+        gross = battery_total_cost / BATTERY_TOTAL_COST_MONTHS
+    else:
+        return None
+    return gross - akkureservihyvitys
 
 
 def monthly_first_day_of_profit(

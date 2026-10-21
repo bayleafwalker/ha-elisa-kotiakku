@@ -283,7 +283,8 @@
         "description": "Configure battery capacity, tariff pricing, and power fee settings. When selecting a tariff preset, the grid transfer fees and tariff mode are automatically applied — you only need to configure retailer margins, taxes, and export fees manually.",
         "data": {
           "battery_expected_usable_capacity_kwh": "Expected usable battery capacity (kWh)",
-          "battery_monthly_cost": "Battery monthly cost (EUR/month)",
+          "battery_cost_basis": "Battery cost basis",
+          "battery_monthly_cost": "Battery monthly instalment (gross, before akkureservihyvitys; 0 = paid off)",
           "battery_total_cost": "Battery total cost (EUR)",
           "akkureservihyvitys": "Battery reserve compensation (EUR/month)",
           "startup_backfill_hours": "Startup backfill (hours)",
@@ -303,9 +304,10 @@
         },
         "data_description": {
           "battery_expected_usable_capacity_kwh": "Usable capacity of your battery pack in kWh. Used for health, cycle, and backup-runtime estimates. Set to 0 to disable capacity-based analytics.",
-          "battery_monthly_cost": "Monthly battery lease or instalment (osamaksu) cost in EUR. Used to calculate the first profitable day of each month. Enter the already-effective monthly amount here; akkureservihyvitys is only applied automatically when monthly cost is derived from total cost. Set to 0 to disable or use total cost instead.",
-          "battery_total_cost": "Total battery system cost in EUR. Used for payback period estimation. If monthly cost is not set, total cost ÷ 120 is used as the monthly cost.",
-          "akkureservihyvitys": "Monthly compensation for allowing battery use in grid reserve (akkureservi). The service fee is waived when this is accepted. Applied automatically when the monthly cost is derived from total cost, and included in payback-rate calculations. Set to 0 if not applicable.",
+          "battery_cost_basis": "Which input defines the monthly battery cost before akkureservihyvitys. 'Monthly instalment' uses the gross monthly instalment below (0 = paid off, so the net cost becomes −akkureservihyvitys). 'Total cost ÷ 120' spreads the total battery cost over 120 months. Akkureservihyvitys is always subtracted, so the net monthly cost may be negative. Used for the first profitable day of the month; payback always uses the total cost.",
+          "battery_monthly_cost": "Gross monthly battery instalment (osamaksu) or lease in EUR, before akkureservihyvitys. Do not subtract the compensation yourself — it is subtracted automatically. Enter 0 once the instalment is paid off. Used when the cost basis is 'Monthly instalment'. Note: since v1.6.0 this is the gross amount; values entered as net in v1.4.1–v1.5.0 must be re-entered as gross.",
+          "battery_total_cost": "Total battery system cost in EUR. Used for payback period estimation, and as the monthly cost (total ÷ 120) when the cost basis is 'Total cost ÷ 120'.",
+          "akkureservihyvitys": "Monthly compensation for allowing battery use in grid reserve (akkureservi). The service fee is waived when this is accepted. Always subtracted from the gross monthly cost of the selected basis, and included in payback-rate calculations. Set to 0 if not applicable.",
           "startup_backfill_hours": "Hours of historical data to import automatically on startup. Set to 0 to disable automatic startup backfill.",
           "tariff_preset": "Select your grid operator's transfer tariff. Presets automatically set the tariff mode and grid transfer fees when saved. All other fields (retailer margins, taxes, export fees) must be configured manually.",
           "tariff_mode": "Controls how import pricing is structured. Automatically set by preset; override only with 'Custom'. 'Spot only' uses only spot price + margin. 'Flat' adds a single transfer fee. 'Day/Night' uses separate fees for 07–22 / 22–07. 'Seasonal Day/Night' uses winter daytime (Nov–Mar, Mon–Sat 07–22) vs other times.",
@@ -359,6 +361,12 @@
         "monthly_max_all_hours": "Monthly maximum — highest single-hour demand",
         "monthly_top3_all_hours": "Monthly top 3 average — average of three highest hours",
         "monthly_top3_winter_weekday_daytime": "Monthly top 3 winter weekday daytime — Nov–Mar, Mon–Fri 07–22 only"
+      }
+    },
+    "battery_cost_basis": {
+      "options": {
+        "instalment": "Monthly instalment — gross instalment − akkureservihyvitys",
+        "total_cost": "Total cost ÷ 120 — total cost spread over 120 months − akkureservihyvitys"
       }
     }
   }

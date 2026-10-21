@@ -27,6 +27,7 @@ from .api import (
 )
 from .const import (
     CONF_AKKURESERVIHYVITYS,
+    CONF_BATTERY_COST_BASIS,
     CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
     CONF_BATTERY_MONTHLY_COST,
     CONF_BATTERY_TOTAL_COST,
@@ -43,6 +44,7 @@ from .payback import (
     effective_monthly_cost,
     monthly_first_day_of_profit,
     payback_remaining_months,
+    resolve_battery_cost_basis,
 )
 from .processing import (
     WindowProcessingStats,
@@ -113,6 +115,11 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
                 CONF_AKKURESERVIHYVITYS,
                 DEFAULT_AKKURESERVIHYVITYS,
             )
+        )
+        self.battery_cost_basis = resolve_battery_cost_basis(
+            battery_cost_basis=config_entry.options.get(CONF_BATTERY_COST_BASIS),
+            battery_monthly_cost=self.battery_monthly_cost,
+            battery_total_cost=self.battery_total_cost,
         )
 
         self._energy_state = EnergyStore()
@@ -444,13 +451,12 @@ class ElisaKotiakkuCoordinator(DataUpdateCoordinator[MeasurementData | None]):
         )
 
     def _effective_monthly_cost(self) -> float | None:
-        """Return effective monthly cost after akkureservi compensation.
+        """Return net monthly cost (basis gross cost − akkureservihyvitys).
 
-        A direct monthly cost is treated as the already-effective aggregate
-        monthly amount. Akkureservihyvitys is only subtracted when the monthly
-        cost is derived from ``battery_total_cost`` (÷ 120 months).
+        May be negative; ``None`` only when the basis has no usable input.
         """
         return effective_monthly_cost(
+            battery_cost_basis=self.battery_cost_basis,
             battery_monthly_cost=self.battery_monthly_cost,
             battery_total_cost=self.battery_total_cost,
             akkureservihyvitys=self.akkureservihyvitys,

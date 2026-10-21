@@ -101,7 +101,8 @@ The options flow uses native Home Assistant selectors (dropdowns, number inputs)
 - Analytics baseline:
   - `battery_expected_usable_capacity_kwh`: configured usable capacity baseline for heuristic health, cycle, and backup-runtime estimates.
 - Battery cost (payback tracking):
-  - `battery_monthly_cost`: monthly instalment or lease cost in `EUR/month`.
+  - `battery_cost_basis`: which input defines the gross monthly cost, `instalment` or `total_cost`.
+  - `battery_monthly_cost`: gross monthly instalment or lease cost in `EUR/month`, before akkureservihyvitys (`0` = paid off).
   - `battery_total_cost`: total battery system cost in `EUR`.
   - `akkureservihyvitys`: monthly battery reserve compensation in `EUR/month`.
 
@@ -123,7 +124,8 @@ The options flow uses native Home Assistant selectors (dropdowns, number inputs)
 | Power fee | `power_fee_rule` | No | Options flow | `monthly_top3_all_hours` | Estimated monthly power-fee formula |
 | Power fee | `power_fee_rate` | No | Options flow | `8.50` | Estimated power-fee rate in `EUR/kW/month` |
 | Analytics | `battery_expected_usable_capacity_kwh` | No | Options flow | `10.0` | Configured usable battery capacity baseline for health analytics |
-| Battery cost | `battery_monthly_cost` | No | Options flow | `49.00` | Monthly instalment or lease cost in `EUR/month` |
+| Battery cost | `battery_cost_basis` | No | Options flow | `instalment` | Gross monthly cost basis: `instalment` (monthly instalment) or `total_cost` (total cost ÷ 120). Defaults to `instalment` when a monthly cost is set, otherwise `total_cost` |
+| Battery cost | `battery_monthly_cost` | No | Options flow | `65.82` | Gross monthly instalment or lease cost in `EUR/month`, before akkureservihyvitys; `0` = paid off |
 | Battery cost | `battery_total_cost` | No | Options flow | `6000.00` | Total battery system cost in `EUR` |
 | Battery cost | `akkureservihyvitys` | No | Options flow | `10.00` | Monthly battery reserve compensation in `EUR/month` |
 
@@ -272,9 +274,20 @@ The Kotiakku service has a fixed monthly fee that is waived when the user accept
 
 Configuration options (in Options flow):
 
-- `battery_monthly_cost`: monthly instalment or lease cost in EUR. When set, this is treated as the already-effective net monthly cost after any fixed compensation. Set to `0` to derive from total cost instead.
-- `battery_total_cost`: total battery system cost in EUR. Used for payback estimation. If monthly cost is not set, `total_cost / 120` is used as the monthly cost (10-year assumption), minus akkureservihyvitys.
-- `akkureservihyvitys`: monthly compensation for grid reserve participation in EUR. Subtracted from the derived monthly cost when using total cost, and added to the effective monthly savings rate for payback estimation. Both retroactive (credited for already-tracked months) and forward-looking. Set to `0` if not applicable.
+- `battery_cost_basis`: `instalment` or `total_cost`. Selects which input defines the gross monthly battery cost. Entries saved before v1.6.0 without this option default to `instalment` when `battery_monthly_cost > 0`, otherwise `total_cost`.
+- `battery_monthly_cost`: the **gross** monthly instalment or lease cost in EUR, before akkureservihyvitys. Do not subtract the compensation yourself. Enter `0` once the instalment is paid off; with basis `instalment` the integration does **not** fall back to total cost.
+- `battery_total_cost`: total battery system cost in EUR. Always used for payback estimation, and used as the gross monthly cost (`total_cost / 120`, 10-year assumption) when the basis is `total_cost`.
+- `akkureservihyvitys`: monthly compensation for grid reserve participation in EUR. Always subtracted from the gross monthly cost of the selected basis, and added to the effective monthly savings rate for payback estimation. Both retroactive (credited for already-tracked months) and forward-looking. Set to `0` if not applicable.
+
+Effective (net) monthly cost:
+
+```text
+effective_monthly_cost = (battery_monthly_cost if basis == instalment else battery_total_cost / 120) - akkureservihyvitys
+```
+
+The result may be negative (the battery pays you). It is unknown only when the basis is `total_cost` and no total cost is configured. Examples with akkureservihyvitys 50 €/month: instalment 65.82 → 15.82; instalment 0 (paid off) → −50; basis `total_cost` with total 8398.80 → 19.99. The value is published as `effective_monthly_cost_eur` (with `battery_cost_basis`) on the **Total battery savings** sensor's evidence attributes and on the **Monthly first day of profit** sensor.
+
+> **Changed in v1.6.0:** from v1.4.1 to v1.5.0 a non-zero `battery_monthly_cost` was treated as already net of akkureservihyvitys. It is now gross. If you entered a net amount, re-enter the gross instalment. There is no automatic migration.
 
 Sensors:
 

@@ -18,8 +18,11 @@ from custom_components.elisa_kotiakku.config_flow import (
     _unique_id_from_api_key,
 )
 from custom_components.elisa_kotiakku.const import (
+    BATTERY_COST_BASIS_INSTALMENT,
+    BATTERY_COST_BASIS_TOTAL_COST,
     CONF_AKKURESERVIHYVITYS,
     CONF_API_KEY,
+    CONF_BATTERY_COST_BASIS,
     CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH,
     CONF_BATTERY_MONTHLY_COST,
     CONF_BATTERY_TOTAL_COST,
@@ -150,6 +153,7 @@ def _expected_default_options() -> dict[str, float | int | str]:
         CONF_BATTERY_MONTHLY_COST: DEFAULT_BATTERY_MONTHLY_COST,
         CONF_BATTERY_TOTAL_COST: DEFAULT_BATTERY_TOTAL_COST,
         CONF_AKKURESERVIHYVITYS: DEFAULT_AKKURESERVIHYVITYS,
+        CONF_BATTERY_COST_BASIS: BATTERY_COST_BASIS_TOTAL_COST,
     }
 
 
@@ -652,6 +656,24 @@ class TestOptionsFlow:
         schema = kwargs["data_schema"]
         assert schema({}) == _expected_default_options()
 
+    async def test_options_form_defaults_basis_for_legacy_entry(self) -> None:
+        """Entries without a basis default to instalment when monthly > 0."""
+        entry = MagicMock()
+        entry.options = {
+            CONF_BATTERY_MONTHLY_COST: 65.82,
+            CONF_BATTERY_TOTAL_COST: 8398.8,
+            CONF_AKKURESERVIHYVITYS: 50.0,
+        }
+        options_flow = ElisaKotiakkuOptionsFlow(entry)
+        options_flow.async_show_form = MagicMock(return_value={"type": "form"})
+
+        await options_flow.async_step_init(user_input=None)
+
+        schema = options_flow.async_show_form.call_args.kwargs["data_schema"]
+        validated = schema({})
+        assert validated[CONF_BATTERY_COST_BASIS] == BATTERY_COST_BASIS_INSTALMENT
+        assert validated[CONF_BATTERY_MONTHLY_COST] == 65.82
+
     async def test_options_create_entry_on_submit(self) -> None:
         """Submitting options should create options entry."""
         entry = MagicMock()
@@ -678,6 +700,7 @@ class TestOptionsFlow:
                 CONF_POWER_FEE_RULE: POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
                 CONF_POWER_FEE_RATE: 9.1,
                 CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: 12.5,
+                CONF_BATTERY_COST_BASIS: BATTERY_COST_BASIS_INSTALMENT,
                 CONF_BATTERY_MONTHLY_COST: 49.0,
                 CONF_BATTERY_TOTAL_COST: 5000.0,
                 CONF_AKKURESERVIHYVITYS: 0.0,
@@ -703,6 +726,7 @@ class TestOptionsFlow:
                 CONF_POWER_FEE_RULE: POWER_FEE_RULE_MONTHLY_TOP3_ALL_HOURS,
                 CONF_POWER_FEE_RATE: 9.1,
                 CONF_BATTERY_EXPECTED_USABLE_CAPACITY_KWH: 12.5,
+                CONF_BATTERY_COST_BASIS: BATTERY_COST_BASIS_INSTALMENT,
                 CONF_BATTERY_MONTHLY_COST: 49.0,
                 CONF_BATTERY_TOTAL_COST: 5000.0,
                 CONF_AKKURESERVIHYVITYS: 0.0,

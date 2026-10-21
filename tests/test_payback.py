@@ -9,7 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.elisa_kotiakku.const import (
+    BATTERY_COST_BASIS_INSTALMENT,
+    BATTERY_COST_BASIS_TOTAL_COST,
     CONF_AKKURESERVIHYVITYS,
+    CONF_BATTERY_COST_BASIS,
     CONF_BATTERY_MONTHLY_COST,
     CONF_BATTERY_TOTAL_COST,
     CONF_IMPORT_RETAILER_MARGIN,
@@ -17,6 +20,10 @@ from custom_components.elisa_kotiakku.const import (
 from custom_components.elisa_kotiakku.coordinator import (
     ElisaKotiakkuCoordinator,
     _parse_iso8601,
+)
+from custom_components.elisa_kotiakku.payback import (
+    effective_monthly_cost,
+    resolve_battery_cost_basis,
 )
 
 from .conftest import SAMPLE_MEASUREMENT
@@ -174,13 +181,13 @@ class TestEffectiveMonthlyCost:
         # 5.0 - 10.0 = -5.0
         assert coordinator._effective_monthly_cost() == pytest.approx(-5.0)
 
-    def test_monthly_cost_subtracts_akkureservihyvitys(
+    def test_gross_instalment_subtracts_akkureservihyvitys(
         self,
         mock_hass: MagicMock,
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        """When monthly_cost is set directly, it is treated as net already."""
+        """The monthly instalment is gross; compensation is always subtracted."""
         mock_config_entry.options = {
             CONF_BATTERY_MONTHLY_COST: 49.0,
             CONF_BATTERY_TOTAL_COST: 6000.0,
@@ -189,7 +196,113 @@ class TestEffectiveMonthlyCost:
         coordinator = _make_coordinator(
             mock_hass, mock_api_client, mock_config_entry
         )
-        assert coordinator._effective_monthly_cost() == pytest.approx(49.0)
+        assert coordinator.battery_cost_basis == BATTERY_COST_BASIS_INSTALMENT
+        assert coordinator._effective_monthly_cost() == pytest.approx(39.0)
+
+    def test_operator_instalment_case(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Gross instalment 65.82 with compensation 50 nets to 15.82."""
+        mock_config_entry.options = {
+            CONF_BATTERY_COST_BASIS: BATTERY_COST_BASIS_INSTALMENT,
+            CONF_BATTERY_MONTHLY_COST: 65.82,
+            CONF_BATTERY_TOTAL_COST: 8398.8,
+            CONF_AKKURESERVIHYVITYS: 50.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        assert coordinator._effective_monthly_cost() == pytest.approx(15.82)
+
+    def test_paid_off_instalment_is_negative_compensation(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Instalment 0 with basis instalment is −comp, not total/120."""
+        mock_config_entry.options = {
+            CONF_BATTERY_COST_BASIS: BATTERY_COST_BASIS_INSTALMENT,
+            CONF_BATTERY_MONTHLY_COST: 0.0,
+            CONF_BATTERY_TOTAL_COST: 8398.8,
+            CONF_AKKURESERVIHYVITYS: 50.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        assert coordinator._effective_monthly_cost() == pytest.approx(-50.0)
+
+    def test_total_cost_basis_operator_case(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Basis total_cost ignores the instalment: 8398.8/120 − 50 = 19.99."""
+        mock_config_entry.options = {
+            CONF_BATTERY_COST_BASIS: BATTERY_COST_BASIS_TOTAL_COST,
+            CONF_BATTERY_MONTHLY_COST: 65.82,
+            CONF_BATTERY_TOTAL_COST: 8398.8,
+            CONF_AKKURESERVIHYVITYS: 50.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        assert coordinator._effective_monthly_cost() == pytest.approx(19.99)
+
+    def test_total_cost_basis_without_total_is_none(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        mock_config_entry.options = {
+            CONF_BATTERY_COST_BASIS: BATTERY_COST_BASIS_TOTAL_COST,
+            CONF_BATTERY_MONTHLY_COST: 65.82,
+            CONF_AKKURESERVIHYVITYS: 50.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        assert coordinator._effective_monthly_cost() is None
+
+
+class TestResolveBatteryCostBasis:
+    """Defaulting of a missing or unknown battery_cost_basis."""
+
+    @pytest.mark.parametrize(
+        ("basis", "monthly", "total", "expected"),
+        [
+            (None, 65.82, 8398.8, BATTERY_COST_BASIS_INSTALMENT),
+            (None, 0.0, 8398.8, BATTERY_COST_BASIS_TOTAL_COST),
+            (None, 0.0, 0.0, BATTERY_COST_BASIS_TOTAL_COST),
+            ("bogus", 65.82, 0.0, BATTERY_COST_BASIS_INSTALMENT),
+            (BATTERY_COST_BASIS_INSTALMENT, 0.0, 8398.8, BATTERY_COST_BASIS_INSTALMENT),
+            (BATTERY_COST_BASIS_TOTAL_COST, 65.82, 0.0, BATTERY_COST_BASIS_TOTAL_COST),
+        ],
+    )
+    def test_resolve(
+        self, basis: str | None, monthly: float, total: float, expected: str
+    ) -> None:
+        assert (
+            resolve_battery_cost_basis(
+                battery_cost_basis=basis,
+                battery_monthly_cost=monthly,
+                battery_total_cost=total,
+            )
+            == expected
+        )
+
+    def test_effective_cost_with_negative_instalment_clamps_gross(self) -> None:
+        assert effective_monthly_cost(
+            battery_cost_basis=BATTERY_COST_BASIS_INSTALMENT,
+            battery_monthly_cost=-5.0,
+            battery_total_cost=0.0,
+            akkureservihyvitys=50.0,
+        ) == pytest.approx(-50.0)
 
 
 class TestMonthlyFirstDayOfProfit:
@@ -398,13 +511,13 @@ class TestMonthlyFirstDayOfProfit:
         assert result is not None
         assert result == 9
 
-    def test_profit_day_uses_direct_monthly_cost_without_double_counting_compensation(
+    def test_profit_day_subtracts_compensation_from_gross_instalment(
         self,
         mock_hass: MagicMock,
         mock_api_client: AsyncMock,
         mock_config_entry: MagicMock,
     ) -> None:
-        """Direct monthly cost should already represent the remaining net sum."""
+        """Gross instalment 50 − compensation 10 = 40 net per month."""
         mock_config_entry.options = {
             CONF_BATTERY_MONTHLY_COST: 50.0,
             CONF_AKKURESERVIHYVITYS: 10.0,
@@ -417,9 +530,32 @@ class TestMonthlyFirstDayOfProfit:
             "2025-12": 100.0
         }
 
+        # daily_rate = 100/17 ≈ 5.88; breakeven = 40 / 5.88 ≈ 6.8 → day 7
         result = coordinator.get_monthly_first_day_of_profit()
         assert result is not None
-        assert result == 9
+        assert result == 7
+
+    def test_paid_off_instalment_returns_day_1(
+        self,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Paid-off instalment with compensation is profitable from day 1."""
+        mock_config_entry.options = {
+            CONF_BATTERY_COST_BASIS: BATTERY_COST_BASIS_INSTALMENT,
+            CONF_BATTERY_MONTHLY_COST: 0.0,
+            CONF_BATTERY_TOTAL_COST: 8398.8,
+            CONF_AKKURESERVIHYVITYS: 50.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator.data = SAMPLE_MEASUREMENT
+        coordinator._economics_state.monthly_battery_savings = {
+            "2025-12": 1.0
+        }
+        assert coordinator.get_monthly_first_day_of_profit() == 1
 
     def test_returns_day_1_when_akkureservi_covers_cost(
         self,
@@ -553,6 +689,38 @@ class TestPaybackRemainingMonths:
         result = coordinator.get_payback_remaining_months()
         assert result is not None
         assert result == pytest.approx(13.1, abs=0.1)
+
+    @pytest.mark.parametrize(
+        "basis", [BATTERY_COST_BASIS_INSTALMENT, BATTERY_COST_BASIS_TOTAL_COST]
+    )
+    @pytest.mark.parametrize("monthly", [0.0, 65.82])
+    def test_payback_independent_of_cost_basis_and_instalment(
+        self,
+        basis: str,
+        monthly: float,
+        mock_hass: MagicMock,
+        mock_api_client: AsyncMock,
+        mock_config_entry: MagicMock,
+    ) -> None:
+        """Payback uses total cost + compensation only; no double counting."""
+        mock_config_entry.options = {
+            CONF_BATTERY_COST_BASIS: basis,
+            CONF_BATTERY_MONTHLY_COST: monthly,
+            CONF_BATTERY_TOTAL_COST: 5000.0,
+            CONF_AKKURESERVIHYVITYS: 10.0,
+        }
+        coordinator = _make_coordinator(
+            mock_hass, mock_api_client, mock_config_entry
+        )
+        coordinator._economics_state.totals["battery_savings"] = 900.0
+        coordinator._economics_state.monthly_battery_savings = {
+            "2025-10": 250.0,
+            "2025-11": 300.0,
+            "2025-12": 350.0,
+        }
+        assert coordinator.get_payback_remaining_months() == pytest.approx(
+            13.1, abs=0.1
+        )
 
     def test_akkureservi_tips_to_fully_paid(
         self,
