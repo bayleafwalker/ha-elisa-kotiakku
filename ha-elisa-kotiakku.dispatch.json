@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "repo_id": "ha-elisa-kotiakku",
+  "authority_repo_uuid": "3e4c3e00-ad13-53a4-a539-83dc2081f7c1",
+  "adoption_level": "guidance-only",
+  "routing": {
+    "default_harness": "caller",
+    "default_model_alias": "fast-build",
+    "action_classes": {
+      "plan": {
+        "enabled": true
+      },
+      "build": {
+        "enabled": true,
+        "review_required": true
+      },
+      "review": {
+        "enabled": true
+      },
+      "verify": {
+        "enabled": true,
+        "review_required": true
+      }
+    }
+  },
+  "skills": {
+    "template_root": "/projects/dev/agentops/templates/dispatch/skills",
+    "selected": [
+      "dispatch-plan",
+      "dispatch-build",
+      "dispatch-review",
+      "code-change-verification"
+    ]
+  },
+  "verification": {
+    "command_families": [
+      "unit"
+    ]
+  },
+  "hooks": {
+    "level": "none",
+    "publishers": []
+  }
+}
